@@ -6,8 +6,8 @@ export const getCurrentDate = () => {
   
   export const getNextMonthDate = () => {
     const date = new Date();
+    date.setDate(date.getDate() + 3);
     date.setFullYear(2000);
-    date.setMonth(date.getMonth() + 1);
     return date.toISOString().split("T")[0];
   };
   
