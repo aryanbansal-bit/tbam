@@ -65,7 +65,7 @@ export async function GET(request) {
     } else {
       query = supabase
         .from("user")
-        .select(`id, name, type, email, phone, anniversary, profile,annposter,tbam,active, partner:partner_id (id, name, type, profile,active)`)
+        .select(`id, name, type, email, phone, anniversary, profile,annposter,tbam,active, partner:partner_id (id, name, type, profile,active,annposter)`)
         .eq("type", "member")
         .gte("anniversary", from_date)
         .lte("anniversary", to_date)
