@@ -51,7 +51,8 @@ export async function GET(request) {
         .eq("type", "member")
         .gte("dob", from_date)
         .lte("dob", to_date)
-        .order("dob", { ascending: true });
+        .order("dob", { ascending: true })
+        .order("name", { ascending: true });
     } else if (filterType === "birthday" && type === "spouse") {
       query = supabase
         .from("user")
@@ -59,7 +60,8 @@ export async function GET(request) {
         .eq("type", "spouse")
         .gte("dob", from_date)
         .lte("dob", to_date)
-        .order("dob", { ascending: true });
+        .order("dob", { ascending: true })
+        .order("name", { ascending: true });
     } else {
       query = supabase
         .from("user")
@@ -67,7 +69,8 @@ export async function GET(request) {
         .eq("type", "member")
         .gte("anniversary", from_date)
         .lte("anniversary", to_date)
-        .order("anniversary", { ascending: true });
+        .order("anniversary", { ascending: true })
+        .order("name", { ascending: true });
     }
 
     const { data, error } = await query;
@@ -99,22 +102,47 @@ export async function GET(request) {
   }
 }
 
-// POST: Handles only user and partner update via JSON
 export async function POST(request) {
   try {
     const contentType = request.headers.get("content-type");
     if (!contentType?.includes("application/json")) {
-      return NextResponse.json({ error: "Content-Type must be application/json" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Content-Type must be application/json" },
+        { status: 400 }
+      );
     }
 
     const body = await request.json();
-    const { id, partner, ...updateData } = body;
+    let { id, partner, ...updateData } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Missing user ID" }, { status: 400 });
     }
 
-    // Fetch existing data for comparison
+    // ---------- DATE NORMALIZER ----------
+    const normalizeDateTo2000 = (value) => {
+      if (!value) return value;
+      const match = value.match(/(\d{2}-\d{2})$/);
+      return match ? `2000-${match[1]}` : null;
+    };
+
+    // Normalize USER dates
+    if ("dob" in updateData) {
+      updateData.dob = normalizeDateTo2000(updateData.dob);
+    }
+    if ("anniversary" in updateData) {
+      updateData.anniversary = normalizeDateTo2000(updateData.anniversary);
+    }
+
+    // Normalize PARTNER dates
+    if (partner?.dob !== undefined) {
+      partner.dob = normalizeDateTo2000(partner.dob);
+    }
+    if (partner?.anniversary !== undefined) {
+      partner.anniversary = normalizeDateTo2000(partner.anniversary);
+    }
+
+    // Fetch existing user
     const { data: existingUser, error: fetchUserError } = await supabase
       .from("user")
       .select("*")
@@ -125,22 +153,36 @@ export async function POST(request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    // Fetch existing partner
     let existingPartner = null;
     if (partner?.id) {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("user")
         .select("*")
         .eq("id", partner.id)
         .single();
-      existingPartner = data || null;
+      existingPartner = data;
     }
 
-    // Compare and collect changes
-    const changeLogMap = {};
+    // ---------- SYNC PARTNER ANNIVERSARY ----------
+    if (
+      partner?.id &&
+      existingPartner &&
+      updateData.anniversary &&
+      updateData.anniversary !== existingUser.anniversary
+    ) {
+      partner.anniversary = updateData.anniversary;
+    }
 
+    // ---------- CHANGE LOG ----------
+    const changeLogMap = {};
     const addChange = (uid, path, oldVal, newVal) => {
       if (!changeLogMap[uid]) changeLogMap[uid] = [];
-      changeLogMap[uid].push({ path, old_value: oldVal?.toString() || null, new_value: newVal?.toString() || null });
+      changeLogMap[uid].push({
+        path,
+        old_value: oldVal ?? null,
+        new_value: newVal ?? null
+      });
     };
 
     for (const key in updateData) {
@@ -152,48 +194,65 @@ export async function POST(request) {
     if (partner?.id && existingPartner) {
       for (const key in partner) {
         if (key !== "id" && partner[key] !== existingPartner[key]) {
-          addChange(partner.id, `partner.${key}`, existingPartner[key], partner[key]);
+          addChange(
+            partner.id,
+            `partner.${key}`,
+            existingPartner[key],
+            partner[key]
+          );
         }
       }
     }
 
-    // Perform updates
-    const userUpdate = supabase.from("user").update(updateData).eq("id", id);
-    const updates = [userUpdate];
+    // ---------- UPDATES ----------
+    const updates = [];
+
+    if (Object.keys(updateData).length > 0) {
+      updates.push(
+        supabase.from("user").update(updateData).eq("id", id)
+      );
+    }
 
     if (partner?.id) {
       const { id: partnerId, ...partnerData } = partner;
-      const partnerUpdate = supabase.from("user").update(partnerData).eq("id", partnerId);
-      updates.push(partnerUpdate);
+      if (Object.keys(partnerData).length > 0) {
+        updates.push(
+          supabase.from("user").update(partnerData).eq("id", partnerId)
+        );
+      }
     }
 
     const results = await Promise.all(updates);
     const errors = results.map(r => r.error).filter(Boolean);
 
-    if (errors.length > 0) {
-      console.error("Update error(s):", errors);
-      return NextResponse.json({ error: "Failed to update user or partner", details: errors }, { status: 500 });
+    if (errors.length) {
+      return NextResponse.json(
+        { error: "Update failed", details: errors },
+        { status: 500 }
+      );
     }
 
-    // Insert logs
+    // ---------- LOG INSERT ----------
     const logs = Object.entries(changeLogMap).map(([uid, changes]) => ({
       user_id: uid,
       action: "update",
-      changes,
+      changes
     }));
 
-    if (logs.length > 0) {
-      const { error: logError } = await supabase.from("change_log").insert(logs);
-      if (logError) {
-        console.error("Failed to log changes:", logError);
-        // Don't block response
-      }
+    if (logs.length) {
+      await supabase.from("change_log").insert(logs);
     }
 
-    return NextResponse.json({ success: true, message: "User and partner updated" });
+    return NextResponse.json({
+      success: true,
+      message: "User and partner updated successfully"
+    });
 
   } catch (error) {
-    console.error("Unhandled POST error:", error);
-    return NextResponse.json({ error: "Internal server error", details: error.message }, { status: 500 });
+    console.error(error);
+    return NextResponse.json(
+      { error: "Internal server error", details: error.message },
+      { status: 500 }
+    );
   }
 }
