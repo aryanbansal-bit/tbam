@@ -8,6 +8,7 @@ export default function UserDetailModal({ id, onClose }) {
   const [formData, setFormData] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState({});
   
   // Simplified image state
   const [images, setImages] = useState({
@@ -47,6 +48,118 @@ export default function UserDetailModal({ id, onClose }) {
     return `/api/profile/image?filename=${filename}&cacheBust=${Date.now()}`;
   };
 
+  // Validation functions
+  const validateName = (name) => {
+    if (!name || name.trim().length === 0) return "Name is required";
+    if (name.trim().length > 100) return "Name must be less than 100 characters";
+    const nameRegex = /^[A-Za-z][A-Za-z .'-]*$/;
+    if (!nameRegex.test(name.trim())) {
+      return "Name can only contain letters, spaces, dots, apostrophes and hyphens, and must start with a letter";
+    }
+    return null;
+  };
+
+  const validatePhone = (phone) => {
+    if (!phone || phone.trim().length === 0) return null; // Phone is optional
+    const phoneRegex = /^(\+91)?[0-9]{10}$/;
+    if (!phoneRegex.test(phone.trim())) {
+      return "Phone must be 10 digits (with optional +91 prefix)";
+    }
+    return null;
+  };
+
+  const validateEmail = (email) => {
+    if (!email || email.trim().length === 0) return null; // Email is optional
+    const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+    if (!emailRegex.test(email.trim())) {
+      return "Please enter a valid email address";
+    }
+    return null;
+  };
+
+  const validateImage = (file, type = 'profile') => {
+    if (!file) return null;
+    
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      return "File must be an image";
+    }
+    
+    // Check file size based on type
+    if (type === 'profile' && file.size > 50 * 1024) { // 50KB
+      return "Profile image must be under 50KB";
+    }
+    
+    if ((type === 'poster' || type === 'anniversary') && file.size > 2.5 * 1024 * 1024) { // 2.5MB
+      return "Poster must be under 2.5MB";
+    }
+    
+    return null;
+  };
+
+  // Form validation
+  const validateForm = () => {
+    const newErrors = {};
+    
+    // Validate user fields
+    const nameError = validateName(formData.name);
+    if (nameError) newErrors.name = nameError;
+    
+    const phoneError = validatePhone(formData.phone);
+    if (phoneError) newErrors.phone = phoneError;
+    
+    const emailError = validateEmail(formData.email);
+    if (emailError) newErrors.email = emailError;
+    
+    // Validate partner fields if exists
+    if (formData.partner) {
+      const partnerNameError = validateName(formData.partner.name);
+      if (partnerNameError) newErrors['partner.name'] = partnerNameError;
+      
+      const partnerPhoneError = validatePhone(formData.partner.phone);
+      if (partnerPhoneError) newErrors['partner.phone'] = partnerPhoneError;
+      
+      const partnerEmailError = validateEmail(formData.partner.email);
+      if (partnerEmailError) newErrors['partner.email'] = partnerEmailError;
+    }
+    
+    // Validate images
+    if (images.user.profile.file) {
+      const profileError = validateImage(images.user.profile.file, 'profile');
+      if (profileError) newErrors['user.profile'] = profileError;
+    }
+    
+    if (images.user.poster.file) {
+      const posterError = validateImage(images.user.poster.file, 'poster');
+      if (posterError) newErrors['user.poster'] = posterError;
+    }
+    
+    if (images.user.anniversary.file) {
+      const annivError = validateImage(images.user.anniversary.file, 'anniversary');
+      if (annivError) newErrors['user.anniversary'] = annivError;
+    }
+    
+    if (formData.partner) {
+      if (images.partner.profile.file) {
+        const profileError = validateImage(images.partner.profile.file, 'profile');
+        if (profileError) newErrors['partner.profile'] = profileError;
+      }
+      
+      if (images.partner.poster.file) {
+        const posterError = validateImage(images.partner.poster.file, 'poster');
+        if (posterError) newErrors['partner.poster'] = posterError;
+      }
+      
+      if (images.partner.anniversary.file) {
+        const annivError = validateImage(images.partner.anniversary.file, 'anniversary');
+        if (annivError) newErrors['partner.anniversary'] = annivError;
+      }
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   useEffect(() => {
     if (id) {
       // Reset all image URLs when id changes
@@ -62,6 +175,7 @@ export default function UserDetailModal({ id, onClose }) {
           anniversary: { url: null, file: null }
         }
       });
+      setErrors({});
     }
   }, [id]);
 
@@ -78,6 +192,7 @@ export default function UserDetailModal({ id, onClose }) {
 
         setUser(data);
         setFormData(JSON.parse(JSON.stringify(data)));
+        setErrors({});
 
         // Set image URLs directly
         setImages({
@@ -110,32 +225,53 @@ export default function UserDetailModal({ id, onClose }) {
     };
   }, [id]);
 
-  const handleImageSelect = (e, isUser) => {
+  const handleImageSelect = (e, isUser, isProfile = true) => {
     if (isLoading) return;
     
     const file = e.target.files[0];
-    if (!file || file.size > 5 * 1024 * 1024) {
-      alert("Image must be under 5MB.");
+    if (!file) return;
+    
+    // Validate image
+    const error = validateImage(file, isProfile ? 'profile' : 'poster');
+    if (error) {
+      alert(error);
+      e.target.value = ''; // Clear the file input
       return;
     }
+    
     const url = URL.createObjectURL(file);
+    const type = isProfile ? 'profile' : 'poster';
+    
     setImages(prev => ({
       ...prev,
       [isUser ? 'user' : 'partner']: {
         ...prev[isUser ? 'user' : 'partner'],
-        profile: { url, file }
+        [type]: { url, file }
       }
     }));
+    
+    // Clear any previous error for this field
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[`${isUser ? 'user' : 'partner'}.${type}`];
+      return newErrors;
+    });
   };
 
   const handlePosterSelect = (e, isUser, isAnniversary = false) => {
     if (isLoading) return;
     
     const file = e.target.files[0];
-    if (!file || file.size > 5 * 1024 * 1024) {
-      alert("Poster must be under 5MB.");
+    if (!file) return;
+    
+    // Validate poster
+    const error = validateImage(file, isAnniversary ? 'anniversary' : 'poster');
+    if (error) {
+      alert(error);
+      e.target.value = ''; // Clear the file input
       return;
     }
+    
     const url = URL.createObjectURL(file);
     const type = isAnniversary ? 'anniversary' : 'poster';
     
@@ -146,6 +282,13 @@ export default function UserDetailModal({ id, onClose }) {
         [type]: { url, file }
       }
     }));
+    
+    // Clear any previous error for this field
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[`${isUser ? 'user' : 'partner'}.${type}`];
+      return newErrors;
+    });
   };
 
   const handleDownload = async (userId, isUser = true, type = 'profile') => {
@@ -192,42 +335,47 @@ export default function UserDetailModal({ id, onClose }) {
     }
   };
 
-  
-const handleDelete = async (id, isUser, type = 'profile') => {
-  if (isLoading) return;
+  const handleDelete = async (id, isUser, type = 'profile') => {
+    if (isLoading) return;
 
-  const confirmed = window.confirm(`Are you sure you want to delete this ${type} image?`);
-  if (!confirmed) return;
+    const confirmed = window.confirm(`Are you sure you want to delete this ${type} image?`);
+    if (!confirmed) return;
 
-  try {
-    setIsLoading(true);
+    try {
+      setIsLoading(true);
 
-    const endpoint = type === "profile" ? "/api/profile/delete" : "/api/poster/delete";
+      const endpoint = type === "profile" ? "/api/profile/delete" : "/api/poster/delete";
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id,
-        category: type === "anniversary" ? "anniversary" : undefined,
-      }),
-    });
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          category: type === "anniversary" ? "anniversary" : undefined,
+        }),
+      });
 
-    if (!res.ok) throw new Error("Failed to delete");
+      if (!res.ok) throw new Error("Failed to delete");
 
-    // Success: close modal
-    onClose();
-  } catch (err) {
-    console.error(err);
-    alert("Delete failed");
-  } finally {
-    setIsLoading(false);
-  }
-};
-
+      // Success: close modal
+      onClose();
+    } catch (err) {
+      console.error(err);
+      alert("Delete failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate form before submission
+    if (!validateForm()) {
+      alert("Please fix the validation errors before submitting.");
+      return;
+    }
+    
     setIsSubmitting(true);
     setIsLoading(true);
     try {
@@ -312,6 +460,7 @@ const handleDelete = async (id, isUser, type = 'profile') => {
 
   const handleInputChange = (path, value) => {
     if (isLoading) return;
+    
     setFormData((prev) => {
       const newData = { ...prev };
       const keys = path.split(".");
@@ -320,9 +469,18 @@ const handleDelete = async (id, isUser, type = 'profile') => {
       obj[keys.at(-1)] = value;
       return newData;
     });
+    
+    // Clear error for this field when user starts typing
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[path];
+      return newErrors;
+    });
   };
 
   const renderImage = (imageData, alt, userId, isUser = true) => {
+    const errorKey = `${isUser ? 'user' : 'partner'}.profile`;
+    
     return (
       <div className="text-center w-24">
         <label className="block cursor-pointer">
@@ -330,7 +488,7 @@ const handleDelete = async (id, isUser, type = 'profile') => {
             type="file" 
             accept="image/*" 
             hidden 
-            onChange={(e) => handleImageSelect(e, isUser)} 
+            onChange={(e) => handleImageSelect(e, isUser, true)} 
             disabled={isLoading}
           />
           <div className="w-24 h-24 border rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
@@ -382,6 +540,9 @@ const handleDelete = async (id, isUser, type = 'profile') => {
           >
             Delete Profile
           </button>
+          {errors[errorKey] && (
+            <div className="mt-1 text-red-500 text-xs">{errors[errorKey]}</div>
+          )}
         </div>
       </div>
     );
@@ -389,7 +550,9 @@ const handleDelete = async (id, isUser, type = 'profile') => {
 
   const renderPoster = (posterData, alt, userId, isUser = true, isAnniversary = false) => {
     const type = isAnniversary ? 'anniversary' : 'poster';
-     let fallbackLabel = "No poster";
+    const errorKey = `${isUser ? 'user' : 'partner'}.${type}`;
+    
+    let fallbackLabel = "No poster";
     if (isAnniversary) fallbackLabel = "Anniversary Poster";
     else fallbackLabel = "Birthday Poster";
 
@@ -441,6 +604,9 @@ const handleDelete = async (id, isUser, type = 'profile') => {
         >
           Delete Poster
         </button>
+        {errors[errorKey] && (
+          <div className="mt-1 text-red-500 text-xs">{errors[errorKey]}</div>
+        )}
       </div>
     );
   };
@@ -479,7 +645,6 @@ const handleDelete = async (id, isUser, type = 'profile') => {
 
   if (!id || !user || !formData) return null;
 
-
   return (
     <div className="fixed inset-0 bg-white bg-opacity-90 z-50 flex justify-center items-center">
       <div className="bg-white p-6 rounded-lg w-full h-full relative shadow-lg overflow-y-auto pb-6">
@@ -499,14 +664,56 @@ const handleDelete = async (id, isUser, type = 'profile') => {
 
             {/* Form fields */}
             <div className="grid grid-cols-1 gap-3 sm:col-span-4 sm:grid-cols-3">
-              <Input label="Name" path="name" value={formData.name} onChange={handleInputChange} disabled={isLoading} />
-              <Select label="Role" path="role" value={formData.role} onChange={handleInputChange}
-                options={["District Team", "Influencer President", "Influencer Secretary"]} disabled={isLoading} />
-              <Select label="Type" path="type" value={formData.type} onChange={handleInputChange}
-                options={["member", "spouse"]} disabled={isLoading} />
-              <Input label="Club" path="club" value={formData.club} onChange={handleInputChange} disabled={isLoading} />
-              <Input label="Email" path="email" value={formData.email} onChange={handleInputChange} disabled={isLoading} />
-              <Input label="Phone" path="phone" value={formData.phone} onChange={handleInputChange} disabled={isLoading} />
+              <Input 
+                label="Name" 
+                path="name" 
+                value={formData.name} 
+                onChange={handleInputChange} 
+                disabled={isLoading}
+                error={errors.name}
+                required
+              />
+              <Select 
+                label="Role" 
+                path="role" 
+                value={formData.role} 
+                onChange={handleInputChange}
+                options={["District Team", "Influencer President", "Influencer Secretary"]} 
+                disabled={isLoading}
+              />
+              <Select 
+                label="Type" 
+                path="type" 
+                value={formData.type} 
+                onChange={handleInputChange}
+                options={["member", "spouse"]} 
+                disabled={isLoading}
+              />
+              <Input 
+                label="Club" 
+                path="club" 
+                value={formData.club} 
+                onChange={handleInputChange} 
+                disabled={isLoading}
+              />
+              <Input 
+                label="Email" 
+                path="email" 
+                value={formData.email} 
+                onChange={handleInputChange} 
+                disabled={isLoading}
+                error={errors.email}
+                type="email"
+              />
+              <Input 
+                label="Phone" 
+                path="phone" 
+                value={formData.phone} 
+                onChange={handleInputChange} 
+                disabled={isLoading}
+                error={errors.phone}
+                type="tel"
+              />
               <div><Label text="DOB" />{renderDateInputs("dob")}</div>
               <div><Label text="Anniversary" />{renderDateInputs("anniversary")}</div>
             </div>
@@ -528,14 +735,56 @@ const handleDelete = async (id, isUser, type = 'profile') => {
 
               {/* Partner form fields */}
               <div className="grid grid-cols-1 gap-3 sm:col-span-4 sm:grid-cols-3">
-                <Input label="Name" path="partner.name" value={formData.partner.name} onChange={handleInputChange} disabled={isLoading} />
-                <Select label="Role" path="partner.role" value={formData.partner.role} onChange={handleInputChange}
-                  options={["District Team", "Influencer President", "Influencer Secretary"]} disabled={isLoading} />
-                <Select label="Type" path="partner.type" value={formData.partner.type} onChange={handleInputChange}
-                  options={["member", "spouse"]} disabled={isLoading} />
-                <Input label="Club" path="partner.club" value={formData.partner.club} onChange={handleInputChange} disabled={isLoading} />
-                <Input label="Email" path="partner.email" value={formData.partner.email} onChange={handleInputChange} disabled={isLoading} />
-                <Input label="Phone" path="partner.phone" value={formData.partner.phone} onChange={handleInputChange} disabled={isLoading} />
+                <Input 
+                  label="Name" 
+                  path="partner.name" 
+                  value={formData.partner.name} 
+                  onChange={handleInputChange} 
+                  disabled={isLoading}
+                  error={errors['partner.name']}
+                  required
+                />
+                <Select 
+                  label="Role" 
+                  path="partner.role" 
+                  value={formData.partner.role} 
+                  onChange={handleInputChange}
+                  options={["District Team", "Influencer President", "Influencer Secretary"]} 
+                  disabled={isLoading}
+                />
+                <Select 
+                  label="Type" 
+                  path="partner.type" 
+                  value={formData.partner.type} 
+                  onChange={handleInputChange}
+                  options={["member", "spouse"]} 
+                  disabled={isLoading}
+                />
+                <Input 
+                  label="Club" 
+                  path="partner.club" 
+                  value={formData.partner.club} 
+                  onChange={handleInputChange} 
+                  disabled={isLoading}
+                />
+                <Input 
+                  label="Email" 
+                  path="partner.email" 
+                  value={formData.partner.email} 
+                  onChange={handleInputChange} 
+                  disabled={isLoading}
+                  error={errors['partner.email']}
+                  type="email"
+                />
+                <Input 
+                  label="Phone" 
+                  path="partner.phone" 
+                  value={formData.partner.phone} 
+                  onChange={handleInputChange} 
+                  disabled={isLoading}
+                  error={errors['partner.phone']}
+                  type="tel"
+                />
                 <div><Label text="DOB" />{renderDateInputs("partner.dob")}</div>
               </div>
 
@@ -559,15 +808,18 @@ const handleDelete = async (id, isUser, type = 'profile') => {
     </div>
   );
 }
-const Input = ({ label, path, value, onChange, disabled }) => (
+
+const Input = ({ label, path, value, onChange, disabled, error, type = "text", required = false }) => (
   <div>
-    <Label text={label} />
+    <Label text={label} required={required} />
     <input 
+      type={type}
       value={value || ""} 
       onChange={(e) => onChange(path, e.target.value)}
-      className="border rounded p-1 w-full disabled:opacity-60" 
+      className={`border rounded p-1 w-full disabled:opacity-60 ${error ? 'border-red-500' : ''}`} 
       disabled={disabled}
     />
+    {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
   </div>
 );
 
@@ -586,6 +838,9 @@ const Select = ({ label, path, value, onChange, options = [], disabled }) => (
   </div>
 );
 
-const Label = ({ text }) => (
-  <label className="block mb-1 font-medium text-gray-700">{text}</label>
+const Label = ({ text, required = false }) => (
+  <label className="block mb-1 font-medium text-gray-700">
+    {text}
+    {required && <span className="text-red-500 ml-1">*</span>}
+  </label>
 );
