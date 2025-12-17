@@ -9,6 +9,7 @@ export default function UserDetailModal({ id, onClose }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [fileErrors, setFileErrors] = useState({}); // Separate state for file errors
   
   // Simplified image state
   const [images, setImages] = useState({
@@ -100,6 +101,7 @@ export default function UserDetailModal({ id, onClose }) {
   // Form validation
   const validateForm = () => {
     const newErrors = {};
+    const newFileErrors = {};
     
     // Validate user fields
     const nameError = validateName(formData.name);
@@ -123,41 +125,42 @@ export default function UserDetailModal({ id, onClose }) {
       if (partnerEmailError) newErrors['partner.email'] = partnerEmailError;
     }
     
-    // Validate images
+    // Validate images - store in fileErrors
     if (images.user.profile.file) {
       const profileError = validateImage(images.user.profile.file, 'profile');
-      if (profileError) newErrors['user.profile'] = profileError;
+      if (profileError) newFileErrors['user.profile'] = profileError;
     }
     
     if (images.user.poster.file) {
       const posterError = validateImage(images.user.poster.file, 'poster');
-      if (posterError) newErrors['user.poster'] = posterError;
+      if (posterError) newFileErrors['user.poster'] = posterError;
     }
     
     if (images.user.anniversary.file) {
       const annivError = validateImage(images.user.anniversary.file, 'anniversary');
-      if (annivError) newErrors['user.anniversary'] = annivError;
+      if (annivError) newFileErrors['user.anniversary'] = annivError;
     }
     
     if (formData.partner) {
       if (images.partner.profile.file) {
         const profileError = validateImage(images.partner.profile.file, 'profile');
-        if (profileError) newErrors['partner.profile'] = profileError;
+        if (profileError) newFileErrors['partner.profile'] = profileError;
       }
       
       if (images.partner.poster.file) {
         const posterError = validateImage(images.partner.poster.file, 'poster');
-        if (posterError) newErrors['partner.poster'] = posterError;
+        if (posterError) newFileErrors['partner.poster'] = posterError;
       }
       
       if (images.partner.anniversary.file) {
         const annivError = validateImage(images.partner.anniversary.file, 'anniversary');
-        if (annivError) newErrors['partner.anniversary'] = annivError;
+        if (annivError) newFileErrors['partner.anniversary'] = annivError;
       }
     }
     
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setFileErrors(newFileErrors);
+    return Object.keys(newErrors).length === 0 && Object.keys(newFileErrors).length === 0;
   };
 
   useEffect(() => {
@@ -176,6 +179,7 @@ export default function UserDetailModal({ id, onClose }) {
         }
       });
       setErrors({});
+      setFileErrors({});
     }
   }, [id]);
 
@@ -193,6 +197,7 @@ export default function UserDetailModal({ id, onClose }) {
         setUser(data);
         setFormData(JSON.parse(JSON.stringify(data)));
         setErrors({});
+        setFileErrors({});
 
         // Set image URLs directly
         setImages({
@@ -233,14 +238,26 @@ export default function UserDetailModal({ id, onClose }) {
     
     // Validate image
     const error = validateImage(file, isProfile ? 'profile' : 'poster');
+    
+    const type = isProfile ? 'profile' : 'poster';
+    const fieldKey = `${isUser ? 'user' : 'partner'}.${type}`;
+    
     if (error) {
-      alert(error);
+      setFileErrors(prev => ({ ...prev, [fieldKey]: error }));
       e.target.value = ''; // Clear the file input
+      
+      // Clear the image from state if there's an error
+      setImages(prev => ({
+        ...prev,
+        [isUser ? 'user' : 'partner']: {
+          ...prev[isUser ? 'user' : 'partner'],
+          [type]: { url: null, file: null }
+        }
+      }));
       return;
     }
     
     const url = URL.createObjectURL(file);
-    const type = isProfile ? 'profile' : 'poster';
     
     setImages(prev => ({
       ...prev,
@@ -251,10 +268,10 @@ export default function UserDetailModal({ id, onClose }) {
     }));
     
     // Clear any previous error for this field
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors[`${isUser ? 'user' : 'partner'}.${type}`];
-      return newErrors;
+    setFileErrors(prev => {
+      const newFileErrors = { ...prev };
+      delete newFileErrors[fieldKey];
+      return newFileErrors;
     });
   };
 
@@ -265,15 +282,26 @@ export default function UserDetailModal({ id, onClose }) {
     if (!file) return;
     
     // Validate poster
+    const type = isAnniversary ? 'anniversary' : 'poster';
+    const fieldKey = `${isUser ? 'user' : 'partner'}.${type}`;
     const error = validateImage(file, isAnniversary ? 'anniversary' : 'poster');
+    
     if (error) {
-      alert(error);
+      setFileErrors(prev => ({ ...prev, [fieldKey]: error }));
       e.target.value = ''; // Clear the file input
+      
+      // Clear the image from state if there's an error
+      setImages(prev => ({
+        ...prev,
+        [isUser ? 'user' : 'partner']: {
+          ...prev[isUser ? 'user' : 'partner'],
+          [type]: { url: null, file: null }
+        }
+      }));
       return;
     }
     
     const url = URL.createObjectURL(file);
-    const type = isAnniversary ? 'anniversary' : 'poster';
     
     setImages(prev => ({
       ...prev,
@@ -284,10 +312,10 @@ export default function UserDetailModal({ id, onClose }) {
     }));
     
     // Clear any previous error for this field
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors[`${isUser ? 'user' : 'partner'}.${type}`];
-      return newErrors;
+    setFileErrors(prev => {
+      const newFileErrors = { ...prev };
+      delete newFileErrors[fieldKey];
+      return newFileErrors;
     });
   };
 
@@ -322,7 +350,15 @@ export default function UserDetailModal({ id, onClose }) {
       link.click();
       document.body.removeChild(link);
     } catch (err) {
-      alert(`${type === 'profile' ? 'Profile' : 'Poster'} download failed`);
+      // Show inline error instead of alert
+      setErrors(prev => ({ ...prev, download: `${type === 'profile' ? 'Profile' : 'Poster'} download failed` }));
+      setTimeout(() => {
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.download;
+          return newErrors;
+        });
+      }, 3000);
     } finally {
       setDownloadStates(prev => ({
         ...prev,
@@ -361,7 +397,15 @@ export default function UserDetailModal({ id, onClose }) {
       onClose();
     } catch (err) {
       console.error(err);
-      alert("Delete failed");
+      // Show inline error instead of alert
+      setErrors(prev => ({ ...prev, delete: "Delete failed" }));
+      setTimeout(() => {
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.delete;
+          return newErrors;
+        });
+      }, 3000);
     } finally {
       setIsLoading(false);
     }
@@ -372,7 +416,8 @@ export default function UserDetailModal({ id, onClose }) {
     
     // Validate form before submission
     if (!validateForm()) {
-      alert("Please fix the validation errors before submitting.");
+      // Scroll to top to show first error
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     
@@ -451,7 +496,15 @@ export default function UserDetailModal({ id, onClose }) {
       onClose();
     } catch (err) {
       console.error(err);
-      alert("Submit failed");
+      // Show inline error instead of alert
+      setErrors(prev => ({ ...prev, submit: "Submit failed" }));
+      setTimeout(() => {
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.submit;
+          return newErrors;
+        });
+      }, 3000);
     } finally {
       setIsSubmitting(false);
       setIsLoading(false);
@@ -479,7 +532,8 @@ export default function UserDetailModal({ id, onClose }) {
   };
 
   const renderImage = (imageData, alt, userId, isUser = true) => {
-    const errorKey = `${isUser ? 'user' : 'partner'}.profile`;
+    const fieldKey = `${isUser ? 'user' : 'partner'}.profile`;
+    const fileError = fileErrors[fieldKey];
     
     return (
       <div className="text-center w-24">
@@ -491,7 +545,7 @@ export default function UserDetailModal({ id, onClose }) {
             onChange={(e) => handleImageSelect(e, isUser, true)} 
             disabled={isLoading}
           />
-          <div className="w-24 h-24 border rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
+          <div className={`w-24 h-24 border rounded-full bg-gray-100 flex items-center justify-center overflow-hidden ${fileError ? 'border-red-500' : ''}`}>
             {imageData.url ? (
               <Image 
                 src={imageData.url} 
@@ -540,8 +594,8 @@ export default function UserDetailModal({ id, onClose }) {
           >
             Delete Profile
           </button>
-          {errors[errorKey] && (
-            <div className="mt-1 text-red-500 text-xs">{errors[errorKey]}</div>
+          {fileError && (
+            <div className="mt-1 text-red-500 text-xs">{fileError}</div>
           )}
         </div>
       </div>
@@ -550,7 +604,8 @@ export default function UserDetailModal({ id, onClose }) {
 
   const renderPoster = (posterData, alt, userId, isUser = true, isAnniversary = false) => {
     const type = isAnniversary ? 'anniversary' : 'poster';
-    const errorKey = `${isUser ? 'user' : 'partner'}.${type}`;
+    const fieldKey = `${isUser ? 'user' : 'partner'}.${type}`;
+    const fileError = fileErrors[fieldKey];
     
     let fallbackLabel = "No poster";
     if (isAnniversary) fallbackLabel = "Anniversary Poster";
@@ -566,7 +621,7 @@ export default function UserDetailModal({ id, onClose }) {
             onChange={(e) => handlePosterSelect(e, isUser, isAnniversary)} 
             disabled={isLoading}
           />
-          <div className="w-32 h-48 border rounded-md bg-gray-100 flex items-center justify-center overflow-hidden">
+          <div className={`w-32 h-48 border rounded-md bg-gray-100 flex items-center justify-center overflow-hidden ${fileError ? 'border-red-500' : ''}`}>
             {posterData.url ? (
               <Image 
                 src={posterData.url} 
@@ -586,7 +641,7 @@ export default function UserDetailModal({ id, onClose }) {
                 }}
               />
             ) : <span className="text-xs">{fallbackLabel}</span>}
-          </div>
+        </div>
         </label>
         <button 
           type="button" 
@@ -604,8 +659,8 @@ export default function UserDetailModal({ id, onClose }) {
         >
           Delete Poster
         </button>
-        {errors[errorKey] && (
-          <div className="mt-1 text-red-500 text-xs">{errors[errorKey]}</div>
+        {fileError && (
+          <div className="mt-1 text-red-500 text-xs">{fileError}</div>
         )}
       </div>
     );
@@ -653,6 +708,17 @@ export default function UserDetailModal({ id, onClose }) {
           <h2 className="text-xl font-semibold">User Details</h2>
           {isLoading && <div className="text-sm text-blue-600">Processing...</div>}
         </div>
+
+        {/* Global error messages */}
+        {(errors.download || errors.delete || errors.submit) && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
+            <div className="text-red-700 text-sm">
+              {errors.download && <div>{errors.download}</div>}
+              {errors.delete && <div>{errors.delete}</div>}
+              {errors.submit && <div>{errors.submit}</div>}
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-8 text-sm">
           {/* USER ROW */}
