@@ -2,13 +2,26 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function Navbar() {
+  const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedValue, setSelectedValue] = useState("");
+
+  const handleEmailChange = (e) => {
+    const selected = e.target.value;
+    setSelectedValue(""); // Reset to allow re-selection
+    if (selected === "rotary3012") {
+      router.push("/dashboard/services/emailsend/rotary3012");
+    } else if (selected === "tbam") {
+      router.push("/dashboard/services/emailsend/tbam");
+    }
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -105,6 +118,29 @@ export default function Navbar() {
                   </Link>
                 </li>
                 <li>
+                  <select
+                    value={selectedValue}
+                    onChange={handleEmailChange}
+                    className="bg-blue-600 text-white border border-white rounded px-2 py-1 cursor-pointer hover:bg-blue-700 focus:outline-none"
+                  >
+                    <option value="" disabled>
+                      Select Email Group
+                    </option>
+                    <option value="rotary3012">Rotary3012</option>
+                    <option value="tbam">TBAM</option>
+                  </select>
+                </li>
+                <li>
+                  <Link href="/dashboard/services/personalemails" className="hover:text-gray-200">
+                    Personal Emails
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/dashboard/services/whatsapp" className="hover:text-gray-200">
+                    Whatsapp
+                  </Link>
+                </li>
+                <li>
                   <Link
                     href="/dashboard/user/member"
                     className="hover:text-gray-200"
@@ -137,9 +173,8 @@ export default function Navbar() {
                 >
                   <span>{username || "User"}</span>
                   <svg
-                    className={`w-4 h-4 transition-transform ${
-                      userMenuOpen ? "rotate-180" : ""
-                    }`}
+                    className={`w-4 h-4 transition-transform ${userMenuOpen ? "rotate-180" : ""
+                      }`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
