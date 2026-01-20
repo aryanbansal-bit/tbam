@@ -3,17 +3,31 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { supabase } from "@/app/utils/dbconnect";
 import { formatFullDate } from "@/lib/utils";
 import util from "util";
-
+import { cookies } from 'next/headers';
 
 export async function POST(request) {
     try {
-      console.log("entered")
+      // 1️⃣ Cookie auth
+          const cookieStore = await cookies();
+          const isLoggedIn =cookieStore.get('authSession')?.value === 'true';
+      
+          // 2️⃣ Header API key
+          const apiKey = request.headers.get('x-api-key');
+          const VALID_API_KEY = process.env.HELLO_API_KEY;
+      
+          if (!isLoggedIn && apiKey !== VALID_API_KEY) {
+            return Response.json(
+              { error: 'Unauthorized' },
+              { status: 401 }
+            );
+          }
+        
         const { R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_ENDPOINT, EMAIL_FROM, EMAIL_TO, EMAIL_TEST } = process.env;
         if (!R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_BUCKET || !R2_ENDPOINT || !EMAIL_FROM || !EMAIL_TO) {
             return Response.json({ message: 'Server configuration error' }, { status: 500 });
         }
 
-        const { type, date, listOfEmails,Api_key } = await request.json();
+        const { type, date, listOfEmails} = await request.json();
 
         // Initialize R2 client
         const r2 = new S3Client({

@@ -4,7 +4,12 @@ export function middleware(request) {
   const { pathname } = request.nextUrl;
   
   // Public paths that don't require authentication
-  const publicPaths = ['/login', '/api/auth'];
+  const publicPaths = [
+    '/login',
+    '/api/auth',
+    '/api/email/rotary3012/hello',
+    '/api/email/rotary3012/send-email', // 👈 allow hello API
+  ];
   if (publicPaths.some(path => pathname.startsWith(path))) {
     return NextResponse.next();
   }
