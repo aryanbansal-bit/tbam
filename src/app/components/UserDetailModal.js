@@ -45,13 +45,12 @@ export default function UserDetailModal({ id, onClose }) {
     if (type === 'poster') filename += '_poster.jpg';
     else if (type === 'anniversary') filename += '_anniv.jpg';
     else filename += '.jpg';
-    
     return `/api/profile/image?filename=${filename}&cacheBust=${Date.now()}`;
   };
 
   // Validation functions
   const validateName = (name) => {
-    if (!name || name.trim().length === 0) return "Name is required";
+    if (!name || name.trim().length === 0) return null; // Name is optional
     if (name.trim().length > 100) return "Name must be less than 100 characters";
     const nameRegex = /^[A-Za-z][A-Za-z .'-]*$/;
     if (!nameRegex.test(name.trim())) {

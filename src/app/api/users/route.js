@@ -104,6 +104,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    // ---------- CONTENT TYPE CHECK ----------
     const contentType = request.headers.get("content-type");
     if (!contentType?.includes("application/json")) {
       return NextResponse.json(
@@ -119,14 +120,45 @@ export async function POST(request) {
       return NextResponse.json({ error: "Missing user ID" }, { status: 400 });
     }
 
-    // ---------- DATE NORMALIZER ----------
+    // ---------- HELPERS ----------
     const normalizeDateTo2000 = (value) => {
       if (!value) return value;
       const match = value.match(/(\d{2}-\d{2})$/);
       return match ? `2000-${match[1]}` : null;
     };
 
-    // Normalize USER dates
+    const normalizeNullableString = (val) => {
+      if (val === undefined) return undefined;
+      if (typeof val === "string" && val.trim() === "") return null;
+      return val;
+    };
+
+    // ---------- CLEAN INPUT ----------
+    ["phone", "email"].forEach((field) => {
+      if (field in updateData) {
+        updateData[field] = normalizeNullableString(updateData[field]);
+      }
+    });
+
+    if (partner) {
+      ["phone", "email"].forEach((field) => {
+        if (field in partner) {
+          partner[field] = normalizeNullableString(partner[field]);
+        }
+      });
+    }
+
+    // Remove undefined keys (CRITICAL)
+    Object.keys(updateData).forEach(
+      (key) => updateData[key] === undefined && delete updateData[key]
+    );
+    if (partner) {
+      Object.keys(partner).forEach(
+        (key) => partner[key] === undefined && delete partner[key]
+      );
+    }
+
+    // ---------- DATE NORMALIZATION ----------
     if ("dob" in updateData) {
       updateData.dob = normalizeDateTo2000(updateData.dob);
     }
@@ -134,7 +166,6 @@ export async function POST(request) {
       updateData.anniversary = normalizeDateTo2000(updateData.anniversary);
     }
 
-    // Normalize PARTNER dates
     if (partner?.dob !== undefined) {
       partner.dob = normalizeDateTo2000(partner.dob);
     }
@@ -142,7 +173,7 @@ export async function POST(request) {
       partner.anniversary = normalizeDateTo2000(partner.anniversary);
     }
 
-    // Fetch existing user
+    // ---------- FETCH EXISTING USER ----------
     const { data: existingUser, error: fetchUserError } = await supabase
       .from("user")
       .select("*")
@@ -153,7 +184,7 @@ export async function POST(request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Fetch existing partner
+    // ---------- FETCH EXISTING PARTNER ----------
     let existingPartner = null;
     if (partner?.id) {
       const { data } = await supabase
@@ -186,14 +217,21 @@ export async function POST(request) {
     };
 
     for (const key in updateData) {
-      if (updateData[key] !== existingUser[key]) {
+      if (
+        updateData[key] !== undefined &&
+        updateData[key] !== existingUser[key]
+      ) {
         addChange(id, `user.${key}`, existingUser[key], updateData[key]);
       }
     }
 
     if (partner?.id && existingPartner) {
       for (const key in partner) {
-        if (key !== "id" && partner[key] !== existingPartner[key]) {
+        if (
+          key !== "id" &&
+          partner[key] !== undefined &&
+          partner[key] !== existingPartner[key]
+        ) {
           addChange(
             partner.id,
             `partner.${key}`,
@@ -232,7 +270,7 @@ export async function POST(request) {
       );
     }
 
-    // ---------- LOG INSERT ----------
+    // ---------- INSERT CHANGE LOG ----------
     const logs = Object.entries(changeLogMap).map(([uid, changes]) => ({
       user_id: uid,
       action: "update",
