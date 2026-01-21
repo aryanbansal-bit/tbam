@@ -2,39 +2,48 @@ import { NextResponse } from 'next/server';
 
 export function middleware(request) {
   const { pathname } = request.nextUrl;
-  
-  // Public paths that don't require authentication
+
+  // Public paths (always accessible)
   const publicPaths = [
     '/login',
     '/api/auth',
     '/api/email/rotary3012/hello',
-    '/api/email/rotary3012/send-email', // 👈 allow hello API
+    '/api/email/rotary3012/send-email',
   ];
+
+  const authSession = request.cookies.get('authSession')?.value;
+  const isAuthenticated = authSession === 'true';
+
+  // 👇 ROOT PAGE LOGIC ("/")
+  if (pathname === '/') {
+    // If logged in → redirect to dashboard
+    if (isAuthenticated) {
+      return NextResponse.redirect(
+        new URL('/dashboard/user/home', request.url)
+      );
+    }
+
+    // If not logged in → allow public view
+    return NextResponse.next();
+  }
+
+  // Allow always-public paths
   if (publicPaths.some(path => pathname.startsWith(path))) {
     return NextResponse.next();
   }
-  
-  // Check for authentication cookie
-  const authSession = request.cookies.get('authSession')?.value;
-  const isAuthenticated = authSession === 'true';
-  
-  console.log('Middleware auth check:', { 
-    pathname, 
-    authSession, 
-    isAuthenticated 
-  });
-  
+
+  // Protected routes
   if (!isAuthenticated) {
-    // Redirect to login if not authenticated
-    const url = new URL('/login', request.url);
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(
+      new URL('/', request.url)
+    );
   }
-  
+
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|api/auth).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

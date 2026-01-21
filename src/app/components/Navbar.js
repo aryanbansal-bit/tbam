@@ -47,7 +47,7 @@ export default function Navbar() {
       setIsAuthenticated(false);
       setUserMenuOpen(false);
       setUsername("");
-      window.location.href = "/login"; // full reload
+      window.location.href = "/"; // full reload
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -105,7 +105,7 @@ export default function Navbar() {
             <>
               <ul className="flex gap-6">
                 <li>
-                  <Link href="/" className="hover:text-gray-200">
+                  <Link href="/dashboard/user/home" className="hover:text-gray-200">
                     Home
                   </Link>
                 </li>
@@ -216,7 +216,7 @@ export default function Navbar() {
         <div className="sm:hidden mt-3 space-y-2">
           {isAuthenticated ? (
             <>
-              <Link href="/" className="block px-3 py-2 hover:bg-blue-700 rounded">
+              <Link href="/dashboard/user/home" className="hover:text-gray-200">
                 Home
               </Link>
               <Link

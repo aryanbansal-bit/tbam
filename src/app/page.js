@@ -1,196 +1,129 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useCallback } from "react";
-import UserDetailModal from "./components/UserDetailModal";
-import { useRouter } from "next/navigation";
+import { useState } from 'react';
 
-export default function User() {
-  const [data, setData] = useState([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const rowsPerPage = 10;
-  const [modalId, setModalId] = useState(null);
-  const router = useRouter();
+export default function Page() {
+  const [showLogin, setShowLogin] = useState(false);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Filter states
-  const [filters, setFilters] = useState({
-    name: "",
-    club: "",
-    type: "",
-    phone: "",
-    email: "",
-    dob: "",
-    anniversary: "",
-  });
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
 
-  // Check authentication status
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await fetch('/api/auth/check');
-        const data = await response.json();
-        
-        console.log('Auth check result:', data);
-        
-        if (data.authenticated) {
-          setIsAuthenticated(true);
-        } else {
-          router.push('/login');
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        router.push('/login');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, [router]);
-
-  const fetchData = useCallback(async () => {
-    if (!isAuthenticated) return;
-    
     try {
-      const queryParams = new URLSearchParams({
-        filterType: "list",
-        page: currentPage,
-        limit: rowsPerPage,
-        ...filters,
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
       });
 
-      const response = await fetch(`/api/users?${queryParams.toString()}`);
-      
-      if (response.status === 401) {
-        // Unauthorized - redirect to login
-        router.push('/login');
-        return;
+      const data = await response.json();
+
+      if (response.ok) {
+        setShowLogin(false);
+        window.location.reload();
+      } else {
+        setError(data.error || 'Invalid credentials');
       }
-      
-      const res = await response.json();
-      setData(res);
     } catch (err) {
-      console.error("Fetch error:", err);
-      if (err.status === 401) {
-        router.push('/login');
-      }
-    }
-  }, [filters, currentPage, isAuthenticated, router]);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchData();
-    }
-  }, [fetchData, isAuthenticated]);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFilters((prev) => ({ ...prev, [name]: value }));
-    setCurrentPage(1); // Reset to first page on filter change
-  };
-
-  const handleRowClick = (e, id) => {
-    if (e.target.tagName !== "BUTTON" && !e.target.closest("button")) {
-      setModalId(id);
+      setError('Login failed. Try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  if (isLoading) {
-    return (
-      <div className="p-6 max-w-7xl mx-auto flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-        {["name", "club", "type", "phone", "email", "dob", "anniversary"].map((field) => (
-          <input
-            key={field}
-            type="text"
-            name={field}
-            placeholder={`Filter by ${field}`}
-            value={filters[field]}
-            onChange={handleInputChange}
-            className="p-2 border border-gray-300 rounded-md"
-          />
-        ))}
+    <div className="min-h-screen bg-gray-50 relative">
+      {/* Top bar */}
+      <div className="flex justify-end p-4">
+        <button
+          onClick={() => setShowLogin(true)}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+        >
+          Login
+        </button>
       </div>
 
-      <div className="overflow-x-auto border border-gray-300 rounded-lg">
-        <table className="min-w-full table-auto text-sm text-left border-collapse">
-          <thead className="bg-gray-100 text-gray-700">
-            <tr>
-              <th className="border px-4 py-2">Name</th>
-              <th className="border px-4 py-2">Club</th>
-              <th className="border px-4 py-2">Type</th>
-              <th className="border px-4 py-2">Phone</th>
-              <th className="border px-4 py-2">Email</th>
-              <th className="border px-4 py-2">DOB</th>
-              <th className="border px-4 py-2">Anniversary</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.length > 0 ? (
-              data.map((row) => (
-                <tr
-                  key={row.id}
-                  onClick={(e) => handleRowClick(e, row.id)}
-                  className="cursor-pointer hover:bg-gray-100"
-                >
-                  <td className="border px-4 py-2">{row.name}</td>
-                  <td className="border px-4 py-2">{row.club}</td>
-                  <td className="border px-4 py-2">{row.type}</td>
-                  <td className="border px-4 py-2">{row.phone}</td>
-                  <td className="border px-4 py-2">{row.email}</td>
-                  <td className="border px-4 py-2">{row.dob}</td>
-                  <td className="border px-4 py-2">{row.anniversary}</td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="7" className="border px-4 py-4 text-center text-gray-500">
-                  No data available
-                </td>
-              </tr>
+      {/* Page content */}
+      <div className="flex justify-center items-center mt-20 text-xl">
+        This is welcome page
+      </div>
+
+      {/* 🔹 UPDATED: Invisible/Clear background overlay */}
+      {/* Changed bg-black/50 to bg-transparent and added backdrop-blur-sm for a nice glass effect */}
+      {showLogin && (
+        <div className="fixed inset-0 bg-transparent backdrop-blur-[2px] z-40" />
+      )}
+
+      {/* 🔹 Login Modal */}
+      {showLogin && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+          {/* pointer-events-auto needed on the modal itself so you can click inputs */}
+          <div className="bg-white w-full max-w-md rounded-lg shadow-2xl p-6 relative pointer-events-auto border border-gray-100">
+            
+            {/* Close button (disabled while loading) */}
+            {!isLoading && (
+              <button
+                onClick={() => setShowLogin(false)}
+                className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
             )}
-          </tbody>
-        </table>
-      </div>
 
-      <div className="flex justify-between items-center mt-4">
-        <button
-          onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-          disabled={currentPage === 1}
-          className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 disabled:opacity-50"
-        >
-          Previous
-        </button>
-        <span>Page {currentPage}</span>
-        <button
-          onClick={() => setCurrentPage((p) => p + 1)}
-          disabled={data.length < rowsPerPage}
-          className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400 disabled:opacity-50"
-        >
-          Next
-        </button>
-      </div>
+            <h2 className="text-2xl font-bold text-center mb-6 text-gray-800">
+              Sign in
+            </h2>
 
-      {modalId && (
-        <UserDetailModal
-          id={modalId}
-          onClose={() => {
-            setModalId(null);
-            fetchData();
-          }}
-        />
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                type="text"
+                placeholder="Username"
+                required
+                disabled={isLoading}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
+              />
+
+              <input
+                type="password"
+                placeholder="Password"
+                required
+                disabled={isLoading}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 border rounded-md focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100"
+              />
+
+              {error && (
+                <div className="text-red-500 text-sm bg-red-50 p-2 rounded">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-60"
+              >
+                Login
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🔄 UPDATED: Loader is now clear, not black */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-60 cursor-wait">
+          {/* Changed border-white to border-indigo-600 so it is visible on light bg */}
+          <div className="w-14 h-14 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        </div>
       )}
     </div>
   );
