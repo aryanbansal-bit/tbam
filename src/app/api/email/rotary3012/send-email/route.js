@@ -296,30 +296,40 @@ export async function POST(request) {
             };
 
             const renderFields = (fields) => {
-                const availableFields = fields.filter(f => f.value && f.value !== 'NULL');
-                const rowsToShow = 5;
-
-                let html = '';
-                for (let i = 0; i < rowsToShow; i++) {
-                    const field = availableFields[i] || { label: '', value: '' };
-                    let displayValue = field.value;
-
-                    if (field.label === 'Email:' && field.value) {
-                        displayValue = `<a href="mailto:${field.value}" style="color:inherit;text-decoration:underline;">${field.value}</a>`;
-                    } else {
-                        displayValue = toTitleCase(field.value);
-                    }
-
-                    html += `
-        <tr>
-          <td style="padding: 0; font-size: 14px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; height: 18px; line-height: 1;">
-            <strong>${field.label || '&nbsp;'}</strong>${displayValue || '&nbsp;'}
-          </td>
-        </tr>
-      `;
-                }
-                return html;
-            };
+              const availableFields = fields.filter(f => f.value && f.value !== 'NULL');
+              const rowsToShow = 5;
+          
+              let html = '';
+              for (let i = 0; i < rowsToShow; i++) {
+                  const field = availableFields[i] || { label: '', value: '' };
+                  let displayValue = field.value;
+          
+                  if (field.label === 'Email:' && field.value) {
+                      displayValue = `<a href="mailto:${field.value}" style="color:inherit;text-decoration:underline;">${field.value}</a>`;
+                  } else if (field.label === 'Phone:' && field.value) {
+                      // Clean the phone number: remove spaces, dashes, parentheses
+                      const cleanPhone = field.value.replace(/[\s\-\(\)]+/g, '');
+                      // Check if it's a valid Indian mobile number (starts with 6,7,8,9 and is 10 digits)
+                      const isIndianMobile = /^[6789]\d{9}$/.test(cleanPhone);
+                      if (isIndianMobile) {
+                          displayValue = `<a href="https://wa.me/91${cleanPhone}" style="color:inherit;text-decoration:underline;" target="_blank">${field.value}</a>`;
+                      } else {
+                          displayValue = toTitleCase(field.value);
+                      }
+                  } else {
+                      displayValue = toTitleCase(field.value);
+                  }
+          
+                  html += `
+          <tr>
+            <td style="padding: 0; font-size: 14px; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; height: 18px; line-height: 1;">
+              <strong>${field.label || '&nbsp;'}</strong>${displayValue || '&nbsp;'}
+            </td>
+          </tr>
+          `;
+              }
+              return html;
+          };
 
             let cardHtml = `
     <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 15px; background-color: #c4e6f8; border: 1px solid #a1cbe2; border-radius: 8px; overflow: hidden; height: 160px;">
