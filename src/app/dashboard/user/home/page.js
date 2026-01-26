@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import UserDetailModal from "../../../components/UserDetailModal";
+import UserDetailModal from "@/app/components/UserDetailModal";
 
 
 export default function User() {

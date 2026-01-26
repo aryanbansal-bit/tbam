@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { getCurrentDate, getNextMonthDate, formatMonthDay } from "../../../../lib/utils";
-import UserDetailModal from "../../../components/UserDetailModal";
+import { getCurrentDate, getNextMonthDate, formatMonthDay } from "@/lib/utils";
+import UserDetailModal from "@/app/components/UserDetailModal";
 
 export default function User() {
   const BIRTHDAY_FILTER = "anniversary";
