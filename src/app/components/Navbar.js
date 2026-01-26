@@ -17,7 +17,7 @@ export default function Navbar() {
     const selected = e.target.value;
     setSelectedValue(""); // Reset to allow re-selection
     if (selected === "rotary3012") {
-      router.push("/dashboard/services/emailsend/rotary3012/daily");
+      router.push("/dashboard/services/rotary3012/daily");
     } else if (selected === "tbam") {
       router.push("/dashboard/services/emailsend/tbam");
     }
