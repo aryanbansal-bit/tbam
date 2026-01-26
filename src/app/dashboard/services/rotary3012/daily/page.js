@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Navbar from '@/app/components/Navbar-service';
+
 
 export default function DailySendPage() {
   /* =======================
@@ -119,7 +121,7 @@ export default function DailySendPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
-
+      <Navbar/>
       {/* FILTERS */}
       <div className="grid grid-cols-3 gap-4">
         <input name="name" placeholder="Name" onChange={handleFilterChange} className="border p-2 rounded" />
