@@ -15,7 +15,10 @@ export async function GET(request) {
       let query = supabase
         .from("user")
         .select("*", { count: "exact" })
-        .range(offset, offset + limit - 1);
+        .range(offset, offset + limit - 1)
+        .neq("name", "")
+        .not("name", "is", null)
+        .order("id", { ascending: true });
 
       ["name", "club", "type", "phone", "email", "dob", "anniversary"].forEach((field) => {
         const value = url.searchParams.get(field);
