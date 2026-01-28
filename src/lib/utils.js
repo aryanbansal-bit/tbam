@@ -1,8 +1,16 @@
 export const getCurrentDate = () => {
-    const date = new Date();
-    date.setFullYear(2000);
-    return date.toISOString().split("T")[0];
-  };
+  const parts = new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+
+  const month = parts.find(p => p.type === 'month').value;
+  const day = parts.find(p => p.type === 'day').value;
+
+  return `2000-${month}-${day}`;
+};
+
   
   export const getNextMonthDate = () => {
     const date = new Date();

@@ -1,53 +1,47 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Navbar from '@/app/components/Navbar-service';
 
 const getTodayIST = () => {
-  const now = new Date(
-    new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
-  );
-  return now.toISOString().split("T")[0];
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
 };
 
 export default function WhatsAppList() {
+  /* =======================
+     DATA
+     ======================= */
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // selected rows (FULL objects)
-  const [selectedRows, setSelectedRows] = useState([]);
-
-  const [sendingTest, setSendingTest] = useState(false);
-  const [sendingRealtime, setSendingRealtime] = useState(false);
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 10;
+  const [loadingTable, setLoadingTable] = useState(true);
 
   const [filters, setFilters] = useState({
-    name: "",
-    email: "",
-    phone: "",
+    name: '',
+    email: '',
+    phone: '',
     date: getTodayIST(),
   });
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
-
-    const params = new URLSearchParams({
-      mode: "whatsapp",
-      date: filters.date,
-    });
-
+    setLoadingTable(true);
     try {
+      const params = new URLSearchParams({
+        mode: 'whatsapp',
+        date: filters.date,
+      });
+
       const res = await fetch(`/api/user?${params.toString()}`);
       const json = await res.json();
       setData(Array.isArray(json) ? json : []);
-      setCurrentPage(1);
-      setSelectedRows([]); // reset selections on reload
+      setSelectedRows([]);
     } catch {
       setData([]);
     } finally {
-      setLoading(false);
+      setLoadingTable(false);
     }
   }, [filters.date]);
 
@@ -55,223 +49,300 @@ export default function WhatsAppList() {
     fetchData();
   }, [fetchData]);
 
+  /* =======================
+     FILTERING
+     ======================= */
   const filteredData = useMemo(() => {
-    return data.filter(row => {
+    return data.filter((row) => {
       return (
-        (row.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
-        (row.email || "").toLowerCase().includes(filters.email.toLowerCase()) &&
-        (row.phone || "").toString().includes(filters.phone)
+        (row.name || '').toLowerCase().includes(filters.name.toLowerCase()) &&
+        (row.email || '').toLowerCase().includes(filters.email.toLowerCase()) &&
+        (row.phone || '').toString().includes(filters.phone)
       );
     });
   }, [data, filters]);
 
-  const totalPages = Math.ceil(filteredData.length / rowsPerPage);
-  const startIndex = (currentPage - 1) * rowsPerPage;
-  const paginatedData = filteredData.slice(
-    startIndex,
-    startIndex + rowsPerPage
-  );
+  /* =======================
+     SELECTION
+     ======================= */
+  const [selectedRows, setSelectedRows] = useState([]);
 
   const toggleRow = (row) => {
-    setSelectedRows(prev => {
-      const exists = prev.find(r => r.id === row.id);
-      if (exists) {
-        return prev.filter(r => r.id !== row.id);
-      }
-      return [...prev, row];
-    });
+    setSelectedRows((prev) =>
+      prev.some((r) => r.id === row.id)
+        ? prev.filter((r) => r.id !== row.id)
+        : [...prev, row]
+    );
   };
 
-  const removeFromTestTable = (id) => {
-    setSelectedRows(prev => prev.filter(r => r.id !== id));
-  };
+  const isSelected = (id) => selectedRows.some((r) => r.id === id);
 
-  const isChecked = (id) => {
-    return selectedRows.some(r => r.id === id);
-  };
+  /* =======================
+     SEND STATES
+     ======================= */
+  const [sendingTest, setSendingTest] = useState(false);
+  const [sendingRealtime, setSendingRealtime] = useState(false);
+  const [response, setResponse] = useState('');
 
+  /* =======================
+     REALTIME CONFIRMATION
+     ======================= */
+  const [confirming, setConfirming] = useState(false);
+  const [countdown, setCountdown] = useState(5);
 
+  useEffect(() => {
+    if (!confirming) return;
+
+    setCountdown(5);
+    const timer = setInterval(() => {
+      setCountdown((c) => {
+        if (c <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return c - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [confirming]);
+
+  /* =======================
+     ACTIONS
+     ======================= */
   const sendTest = async () => {
     if (selectedRows.length === 0) return;
 
     setSendingTest(true);
+    setResponse('');
 
-    await fetch('/api/personal', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        service: "whatsapp",
-        data: selectedRows,
-      }),
-    });
+    try {
+      const res = await fetch('/api/personal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service: 'whatsapp',
+          data: selectedRows,
+        }),
+      });
 
-    setSendingTest(false);
+      if (!res.ok) throw new Error('Failed to send test WhatsApp');
+
+      setResponse('✅ Test WhatsApp sent successfully');
+    } catch (err) {
+      setResponse(`❌ ${err.message}`);
+    } finally {
+      setSendingTest(false);
+    }
   };
 
   const sendRealtime = async () => {
     setSendingRealtime(true);
+    setResponse('');
 
-    await fetch('/api/personal', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        service: "whatsapp",
-        data: data,
-      }),
-    });
+    try {
+      const res = await fetch('/api/personal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service: 'whatsapp',
+          data,
+        }),
+      });
 
-    setSendingRealtime(false);
+      if (!res.ok) throw new Error('Failed to send realtime WhatsApp');
+
+      setResponse('✅ Realtime WhatsApp sent to all users');
+    } catch (err) {
+      setResponse(`❌ ${err.message}`);
+    } finally {
+      setSendingRealtime(false);
+      setConfirming(false);
+    }
   };
 
   return (
-    <div className="bg-white rounded shadow p-4">
+    <div className="p-6 max-w-7xl mx-auto space-y-8">
       <Navbar />
 
       {/* FILTERS */}
-      <div className="grid grid-cols-4 gap-2 mb-3">
+      <div className="grid grid-cols-4 gap-4">
         <input
           placeholder="Name"
-          className="border px-2 py-1 rounded"
+          className="border p-2 rounded"
           value={filters.name}
-          onChange={e => setFilters({ ...filters, name: e.target.value })}
+          onChange={(e) => setFilters({ ...filters, name: e.target.value })}
         />
         <input
           placeholder="Email"
-          className="border px-2 py-1 rounded"
+          className="border p-2 rounded"
           value={filters.email}
-          onChange={e => setFilters({ ...filters, email: e.target.value })}
+          onChange={(e) => setFilters({ ...filters, email: e.target.value })}
         />
         <input
           placeholder="Phone"
-          className="border px-2 py-1 rounded"
+          className="border p-2 rounded"
           value={filters.phone}
-          onChange={e => setFilters({ ...filters, phone: e.target.value })}
+          onChange={(e) => setFilters({ ...filters, phone: e.target.value })}
         />
         <input
           type="date"
-          className="border px-2 py-1 rounded"
+          className="border p-2 rounded"
           value={filters.date}
-          onChange={e => setFilters({ ...filters, date: e.target.value })}
+          onChange={(e) => setFilters({ ...filters, date: e.target.value })}
         />
       </div>
 
-      {/* MAIN TABLE */}
-      <div className="overflow-auto">
-        <table className="w-full border text-sm">
+      {/* TABLE */}
+      <div className="overflow-x-auto border rounded">
+        <table className="min-w-full text-sm">
           <thead className="bg-gray-100">
             <tr>
-              <th className="border p-2 w-16">Action</th>
-              <th className="border p-2">Name</th>
-              <th className="border p-2">Phone</th>
-              <th className="border p-2">Email</th>
-              <th className="border p-2">Event Type</th>
+              <th className="border px-4 py-2">Select</th>
+              <th className="border px-4 py-2">Name</th>
+              <th className="border px-4 py-2">Phone</th>
+              <th className="border px-4 py-2">Email</th>
+              <th className="border px-4 py-2">Event</th>
             </tr>
           </thead>
+
           <tbody>
-            {loading && (
+            {loadingTable ? (
               <tr>
-                <td colSpan="5" className="text-center p-4">
+                <td colSpan="5" className="text-center px-4 py-6 text-gray-500">
                   Loading data...
                 </td>
               </tr>
-            )}
-
-            {!loading && paginatedData.length === 0 && (
+            ) : filteredData.length === 0 ? (
               <tr>
-                <td colSpan="5" className="text-center p-4">
-                  No data found
+                <td colSpan="5" className="text-center px-4 py-6 text-gray-500">
+                  No data available
                 </td>
               </tr>
+            ) : (
+              filteredData.map((row) => (
+                <tr key={row.id} className="hover:bg-gray-50">
+                  <td className="border px-4 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isSelected(row.id)}
+                      onChange={() => toggleRow(row)}
+                    />
+                  </td>
+                  <td className="border px-4 py-2">{row.name || '-'}</td>
+                  <td className="border px-4 py-2">{row.phone || '-'}</td>
+                  <td className="border px-4 py-2">{row.email || '-'}</td>
+                  <td className="border px-4 py-2">{row.eventType}</td>
+                </tr>
+              ))
             )}
-
-            {!loading && paginatedData.map(row => (
-              <tr key={row.id}>
-                <td className="border p-2 text-center">
-                  <input
-                    type="checkbox"
-                    checked={isChecked(row.id)}
-                    onChange={() => toggleRow(row)}
-                  />
-                </td>
-                <td className="border p-2">{row.name || "-"}</td>
-                <td className="border p-2">{row.phone || "-"}</td>
-                <td className="border p-2">{row.email || "-"}</td>
-                <td className="border p-2">{row.eventType}</td>
-              </tr>
-            ))}
           </tbody>
         </table>
       </div>
 
-      {/* PAGINATION */}
-      {!loading && totalPages > 1 && (
-        <div className="flex justify-end gap-2 mt-3">
-          <button
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(p => p - 1)}
-            className="px-3 py-1 border rounded disabled:opacity-50"
-          >
-            Prev
-          </button>
-          <span className="px-2 py-1">
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(p => p + 1)}
-            className="px-3 py-1 border rounded disabled:opacity-50"
-          >
-            Next
-          </button>
-        </div>
-      )}
+      {/* SEND SECTION */}
+      <div className="grid grid-cols-[2fr_1fr] gap-6">
+        {/* TEST */}
+        <div className="border p-4 rounded space-y-4">
+          <h3 className="font-semibold">Test WhatsApp</h3>
 
-      {/* TEST + REALTIME */}
-      <div className="grid grid-cols-2 gap-6 mt-6">
-
-        {/* TEST TABLE */}
-        <div className="border rounded p-4">
-          <h3 className="font-semibold mb-3">Test WhatsApp</h3>
-
-          {selectedRows.map(row => (
-            <div
-              key={row.id}
-              className="flex justify-between items-center mb-2"
-            >
-              <span>
-                ID: {row.id}, Name: {row.name}, Event: {row.eventType}
-              </span>
-              <button
-                onClick={() => removeFromTestTable(row.id)}
-                className="text-red-600 font-bold"
-              >
-                ❌
-              </button>
-            </div>
-          ))}
+          <div className="max-h-40 overflow-y-auto border rounded p-2 text-sm space-y-2">
+            {selectedRows.length === 0 ? (
+              <div className="text-gray-500 text-center">
+                No users selected
+              </div>
+            ) : (
+              selectedRows.map((row) => (
+                <div
+                  key={row.id}
+                  className="flex justify-between items-center bg-gray-50 p-2 rounded"
+                >
+                  <div>
+                    <div className="font-medium">{row.name || '-'}</div>
+                    <div className="text-xs text-gray-500">
+                      ID: {row.id} | Event: {row.eventType}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() =>
+                      setSelectedRows((p) =>
+                        p.filter((r) => r.id !== row.id)
+                      )
+                    }
+                    className="text-red-600 font-bold"
+                  >
+                    ❌
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
 
           <button
             onClick={sendTest}
             disabled={sendingTest || selectedRows.length === 0}
-            className="mt-3 w-full bg-blue-600 text-white py-2 rounded disabled:opacity-50"
+            className="bg-blue-600 text-white px-4 py-2 rounded w-full disabled:opacity-50"
           >
-            {sendingTest ? "Sending..." : "Test"}
+            {sendingTest ? 'Sending...' : 'Send Test'}
           </button>
         </div>
 
         {/* REALTIME */}
-        <div className="border rounded p-4 flex flex-col justify-between">
-          <h3 className="font-semibold mb-4">Realtime Alert</h3>
-          <button
-            onClick={sendRealtime}
-            disabled={sendingRealtime}
-            className="bg-blue-600 text-white py-3 rounded disabled:opacity-50"
-          >
-            {sendingRealtime ? "Sending..." : "Send Now"}
-          </button>
-        </div>
+        <div className="border p-4 rounded flex items-center justify-center min-h-[150px]">
+          {!confirming && !sendingRealtime ? (
+            <button
+              onClick={() => setConfirming(true)}
+              className="bg-red-600 text-white px-6 py-3 rounded font-bold hover:bg-red-700"
+            >
+              Realtime to all users
+            </button>
+          ) : !sendingRealtime ? (
+            <div className="text-center space-y-4">
+              <div className="font-semibold">
+                Send WhatsApp to <span className="text-red-600">ALL users</span>?
+              </div>
 
+              <div className="flex gap-4 justify-center">
+                <button
+                  onClick={() => setConfirming(false)}
+                  className="px-4 py-2 border rounded"
+                >
+                  No
+                </button>
+
+                <button
+                  disabled={countdown > 0}
+                  onClick={sendRealtime}
+                  className="bg-red-600 text-white px-4 py-2 rounded disabled:opacity-50"
+                >
+                  Yes {countdown > 0 ? `(${countdown})` : ''}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center space-y-2">
+              <div className="animate-spin inline-block w-6 h-6 border-4 border-red-600 border-t-transparent rounded-full"></div>
+              <div className="font-bold text-red-600">Sending WhatsApp...</div>
+              <p className="text-xs text-gray-400">
+                Please do not close this page.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* RESPONSE */}
+      {response && (
+        <div
+          className={`border p-3 rounded font-medium ${
+            response.includes('✅')
+              ? 'bg-green-50 border-green-200'
+              : 'bg-red-50 border-red-200'
+          }`}
+        >
+          {response}
+        </div>
+      )}
     </div>
   );
 }
