@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import Navbar from '@/app/components/Navbar-service';
 
 const getTodayIST = () => {
@@ -13,7 +13,12 @@ const getTodayIST = () => {
 export default function WhatsAppList() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState(null);
+
+  // selected rows (FULL objects)
+  const [selectedRows, setSelectedRows] = useState([]);
+
+  const [sendingTest, setSendingTest] = useState(false);
+  const [sendingRealtime, setSendingRealtime] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
@@ -25,7 +30,7 @@ export default function WhatsAppList() {
     date: getTodayIST(),
   });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
 
     const params = new URLSearchParams({
@@ -37,28 +42,25 @@ export default function WhatsAppList() {
       const res = await fetch(`/api/user?${params.toString()}`);
       const json = await res.json();
       setData(Array.isArray(json) ? json : []);
-      setCurrentPage(1); // reset page on reload
+      setCurrentPage(1);
+      setSelectedRows([]); // reset selections on reload
     } catch {
       setData([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters.date]);
 
   useEffect(() => {
     fetchData();
-  }, [filters.date]);
+  }, [fetchData]);
 
   const filteredData = useMemo(() => {
     return data.filter(row => {
-      const name = (row.name || "").toLowerCase();
-      const email = (row.email || "").toLowerCase();
-      const phone = (row.phone || "").toString();
-
       return (
-        name.includes(filters.name.toLowerCase()) &&
-        email.includes(filters.email.toLowerCase()) &&
-        phone.includes(filters.phone)
+        (row.name || "").toLowerCase().includes(filters.name.toLowerCase()) &&
+        (row.email || "").toLowerCase().includes(filters.email.toLowerCase()) &&
+        (row.phone || "").toString().includes(filters.phone)
       );
     });
   }, [data, filters]);
@@ -70,9 +72,61 @@ export default function WhatsAppList() {
     startIndex + rowsPerPage
   );
 
+  const toggleRow = (row) => {
+    setSelectedRows(prev => {
+      const exists = prev.find(r => r.id === row.id);
+      if (exists) {
+        return prev.filter(r => r.id !== row.id);
+      }
+      return [...prev, row];
+    });
+  };
+
+  const removeFromTestTable = (id) => {
+    setSelectedRows(prev => prev.filter(r => r.id !== id));
+  };
+
+  const isChecked = (id) => {
+    return selectedRows.some(r => r.id === id);
+  };
+
+
+  const sendTest = async () => {
+    if (selectedRows.length === 0) return;
+
+    setSendingTest(true);
+
+    await fetch('/api/personal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service: "whatsapp",
+        data: selectedRows,
+      }),
+    });
+
+    setSendingTest(false);
+  };
+
+  const sendRealtime = async () => {
+    setSendingRealtime(true);
+
+    await fetch('/api/personal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service: "whatsapp",
+        data: data,
+      }),
+    });
+
+    setSendingRealtime(false);
+  };
+
   return (
     <div className="bg-white rounded shadow p-4">
-      <Navbar/>
+      <Navbar />
+
       {/* FILTERS */}
       <div className="grid grid-cols-4 gap-2 mb-3">
         <input
@@ -101,10 +155,10 @@ export default function WhatsAppList() {
         />
       </div>
 
-      {/* TABLE */}
+      {/* MAIN TABLE */}
       <div className="overflow-auto">
         <table className="w-full border text-sm">
-          <thead className="bg-gray-100 sticky top-0 z-10">
+          <thead className="bg-gray-100">
             <tr>
               <th className="border p-2 w-16">Action</th>
               <th className="border p-2">Name</th>
@@ -113,7 +167,6 @@ export default function WhatsAppList() {
               <th className="border p-2">Event Type</th>
             </tr>
           </thead>
-
           <tbody>
             {loading && (
               <tr>
@@ -131,28 +184,26 @@ export default function WhatsAppList() {
               </tr>
             )}
 
-            {!loading &&
-              paginatedData.map(row => (
-                <tr key={row.id}>
-                  <td className="border p-2 text-center">
-                    <input
-                      type="radio"
-                      name="whatsappSelect"
-                      checked={selectedId === row.id}
-                      onChange={() => setSelectedId(row.id)}
-                    />
-                  </td>
-                  <td className="border p-2">{row.name || "-"}</td>
-                  <td className="border p-2">{row.phone || "-"}</td>
-                  <td className="border p-2">{row.email || "-"}</td>
-                  <td className="border p-2">{row.eventType}</td>
-                </tr>
-              ))}
+            {!loading && paginatedData.map(row => (
+              <tr key={row.id}>
+                <td className="border p-2 text-center">
+                  <input
+                    type="checkbox"
+                    checked={isChecked(row.id)}
+                    onChange={() => toggleRow(row)}
+                  />
+                </td>
+                <td className="border p-2">{row.name || "-"}</td>
+                <td className="border p-2">{row.phone || "-"}</td>
+                <td className="border p-2">{row.email || "-"}</td>
+                <td className="border p-2">{row.eventType}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
-      {/* PAGINATION CONTROLS */}
+      {/* PAGINATION */}
       {!loading && totalPages > 1 && (
         <div className="flex justify-end gap-2 mt-3">
           <button
@@ -174,6 +225,53 @@ export default function WhatsAppList() {
           </button>
         </div>
       )}
+
+      {/* TEST + REALTIME */}
+      <div className="grid grid-cols-2 gap-6 mt-6">
+
+        {/* TEST TABLE */}
+        <div className="border rounded p-4">
+          <h3 className="font-semibold mb-3">Test WhatsApp</h3>
+
+          {selectedRows.map(row => (
+            <div
+              key={row.id}
+              className="flex justify-between items-center mb-2"
+            >
+              <span>
+                ID: {row.id}, Name: {row.name}, Event: {row.eventType}
+              </span>
+              <button
+                onClick={() => removeFromTestTable(row.id)}
+                className="text-red-600 font-bold"
+              >
+                ❌
+              </button>
+            </div>
+          ))}
+
+          <button
+            onClick={sendTest}
+            disabled={sendingTest || selectedRows.length === 0}
+            className="mt-3 w-full bg-blue-600 text-white py-2 rounded disabled:opacity-50"
+          >
+            {sendingTest ? "Sending..." : "Test"}
+          </button>
+        </div>
+
+        {/* REALTIME */}
+        <div className="border rounded p-4 flex flex-col justify-between">
+          <h3 className="font-semibold mb-4">Realtime Alert</h3>
+          <button
+            onClick={sendRealtime}
+            disabled={sendingRealtime}
+            className="bg-blue-600 text-white py-3 rounded disabled:opacity-50"
+          >
+            {sendingRealtime ? "Sending..." : "Send Now"}
+          </button>
+        </div>
+
+      </div>
     </div>
   );
 }
