@@ -7,6 +7,8 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
   const search = searchParams.get("search");
+  const mode = searchParams.get("mode"); // 👈 NEW
+  const dateParam = searchParams.get("date"); // optional YYYY-MM-DD
 
   if (id) {
     const { data, error } = await supabase
@@ -45,6 +47,63 @@ export async function GET(request) {
     return new Response(JSON.stringify(data || []), { status: 200 });
   }
 
+  if (mode === "whatsapp") {
+    const istNow = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+    );
+  
+    const month = String(istNow.getMonth() + 1).padStart(2, "0");
+    const day = String(istNow.getDate()).padStart(2, "0");
+  
+    const normalizedDate = dateParam
+      ? `2000-${dateParam.slice(5, 10)}`
+      : `2000-${month}-${day}`;
+  
+    /* Birthdays */
+    const { data: birthdays } = await supabase
+      .from("user")
+      .select("id, name, email, phone")
+      .eq("dob", normalizedDate)
+      .eq("active", true)
+      .eq("poster", true)
+      .in("type", ["member", "spouse"]);
+  
+    /* Anniversaries */
+    const { data: anniversaries } = await supabase
+      .from("user")
+      .select(`
+        id, name, email, phone, annposter,
+        partner:partner_id ( id, active, annposter )
+      `)
+      .eq("anniversary", normalizedDate)
+      .eq("active", true);
+  
+    // ✅ filter: partner active AND (user.annposter OR partner.annposter)
+    const anniversaryFiltered =
+      anniversaries?.filter(u =>
+        u.partner?.active &&
+        (u.annposter === true || u.partner?.annposter === true)
+      ) || [];
+  
+    const list = [
+      ...(birthdays || []).map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        eventType: "Birthday",
+      })),
+      ...anniversaryFiltered.map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        phone: u.phone,
+        eventType: "Anniversary",
+      })),
+    ];
+  
+    return new Response(JSON.stringify(list), { status: 200 });
+  } 
   return new Response(JSON.stringify({ error: "Missing parameters" }), { status: 400 });
 }
 // Initialize R2 client

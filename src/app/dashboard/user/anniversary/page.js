@@ -158,7 +158,7 @@ export default function User() {
                   <button className={`px-3 py-1 text-xs rounded-md font-medium text-white transition ${row.partner?.profile ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}`}>{row.partner?.profile ? "Uploaded" : "Missing"}</button>
                 </td>
                 <td className="border px-4 py-2 ">
-                  <button className={`px-3 py-1 text-xs rounded-md font-medium text-white transition ${row.annposter || row.partner?.annposter ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}`}>{row.annposter ? "Uploaded" : "Missing"}</button>
+                  <button className={`px-3 py-1 text-xs rounded-md font-medium text-white transition ${row.annposter || row.partner?.annposter ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}`}>{row.annposter || row.partner?.annposter ? "Uploaded" : "Missing"}</button>
                 </td>
               </tr>
             ))}
