@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import Navbar from '@/app/components/Navbar-service';
 
-
 export default function DailySendPage() {
+
   /* =======================
      TABLE DATA
      ======================= */
@@ -56,6 +56,10 @@ export default function DailySendPage() {
     );
   };
 
+  const removeSelectedRow = (id) => {
+    setSelectedRows(prev => prev.filter(r => r.id !== id));
+  };
+
   const isSelected = (id) => selectedRows.some((r) => r.id === id);
 
   /* =======================
@@ -91,7 +95,7 @@ export default function DailySendPage() {
         setSendingTest(false);
       } else {
         setSendingRealtime(false);
-        setConfirming(false); // Hide the confirmation UI only AFTER the request finishes
+        setConfirming(false);
       }
     }
   };
@@ -121,7 +125,8 @@ export default function DailySendPage() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-8">
-      <Navbar/>
+      <Navbar />
+
       {/* FILTERS */}
       <div className="grid grid-cols-3 gap-4">
         <input name="name" placeholder="Name" onChange={handleFilterChange} className="border p-2 rounded" />
@@ -182,12 +187,46 @@ export default function DailySendPage() {
         {/* TEST EMAIL */}
         <div className="border p-4 rounded space-y-4">
           <h3 className="font-semibold">Test Email</h3>
+
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="border p-2 rounded w-full"
           />
+
+          {/* ✅ SELECTED ROWS INSIDE TEST SECTION */}
+          <div className="border rounded max-h-48 overflow-y-auto">
+            <div className="bg-gray-50 px-3 py-2 text-sm font-medium border-b">
+              Selected Recipients ({selectedRows.length})
+            </div>
+
+            {selectedRows.length === 0 ? (
+              <div className="p-3 text-sm text-gray-500 text-center">
+                No recipients selected
+              </div>
+            ) : (
+              <table className="min-w-full text-xs">
+                <tbody>
+                  {selectedRows.map(row => (
+                    <tr key={`test-${row.id}`} className="hover:bg-red-50">
+                      <td className="px-2 py-1">{row.name}</td>
+                      <td className="px-2 py-1">{row.email}</td>
+                      <td className="px-2 py-1 text-right">
+                        <button
+                          onClick={() => removeSelectedRow(row.id)}
+                          className="text-red-600 font-bold px-2"
+                        >
+                          ✕
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
           <button
             onClick={() => sendEmail('test')}
             disabled={sendingTest || !date || selectedRows.length === 0}
@@ -197,28 +236,23 @@ export default function DailySendPage() {
           </button>
         </div>
 
-        {/* REALTIME SECTION */}
+        {/* REALTIME */}
         <div className="border p-4 rounded flex items-center justify-center min-h-[150px]">
           {!confirming && !sendingRealtime ? (
-            /* INITIAL STATE */
             <button
               onClick={() => setConfirming(true)}
-              className="bg-red-600 text-white px-6 py-3 rounded font-bold hover:bg-red-700 transition-colors"
+              className="bg-red-600 text-white px-6 py-3 rounded font-bold hover:bg-red-700"
             >
               Realtime to all users
             </button>
           ) : !sendingRealtime ? (
-            /* CONFIRMATION STATE */
             <div className="text-center space-y-4">
               <div className="font-semibold">
                 Send realtime email to <span className="text-red-600">ALL users</span>?
               </div>
 
               <div className="flex gap-4 justify-center">
-                <button
-                  onClick={() => setConfirming(false)}
-                  className="px-4 py-2 border rounded hover:bg-gray-50"
-                >
+                <button onClick={() => setConfirming(false)} className="px-4 py-2 border rounded">
                   No
                 </button>
 
@@ -232,11 +266,9 @@ export default function DailySendPage() {
               </div>
             </div>
           ) : (
-            /* SENDING STATE */
             <div className="text-center space-y-2">
-              <div className="animate-spin inline-block w-6 h-6 border-4 border-red-600 border-t-transparent rounded-full mb-2"></div>
+              <div className="animate-spin inline-block w-6 h-6 border-4 border-red-600 border-t-transparent rounded-full"></div>
               <div className="font-bold text-red-600">Sending Realtime Emails...</div>
-              <p className="text-xs text-gray-400">Please do not close this page.</p>
             </div>
           )}
         </div>
