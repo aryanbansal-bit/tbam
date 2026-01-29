@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import Image from 'next/image';
 
-import governorImg from '@/app/3012_amita18052024042045PM.jpeg';
-import bannerImg from '@/app/Banners010720251247244551202PM.png';
-import presidentImg from '@/app/PRESIDENT160620251053175875643AM.png';
+import governorImg from '@/app/public/DG.jpeg';
+import bannerImg from '@/app/public/Banners.png';
+import presidentImg from '@/app/public/PRESIDENT.png';
 
 export default function Page() {
   const [showLogin, setShowLogin] = useState(false);
