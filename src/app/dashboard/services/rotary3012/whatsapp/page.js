@@ -117,13 +117,10 @@ export default function WhatsAppList() {
     setResponse('');
 
     try {
-      const res = await fetch('/api/personal', {
+      const res = await fetch('/api/services/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          service: 'whatsapp',
-          data: selectedRows,
-        }),
+        body: JSON.stringify({selectedRows}),
       });
 
       if (!res.ok) throw new Error('Failed to send test WhatsApp');
@@ -141,7 +138,7 @@ export default function WhatsAppList() {
     setResponse('');
 
     try {
-      const res = await fetch('/api/personal', {
+      const res = await fetch('/api/services/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

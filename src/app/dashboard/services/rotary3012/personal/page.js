@@ -117,7 +117,7 @@ export default function EmailList() {
     setResponse('');
 
     try {
-      const res = await fetch('/api/personal', {
+      const res = await fetch('/api/services/personal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -141,7 +141,7 @@ export default function EmailList() {
     setResponse('');
 
     try {
-      const res = await fetch('/api/personal', {
+      const res = await fetch('/api/services/personal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -7,8 +7,7 @@ export function middleware(request) {
   const publicPaths = [
     '/login',
     '/api/auth',
-    '/api/email/rotary3012/hello',
-    '/api/email/rotary3012/send-email',
+    '/api/services/email',
   ];
 
   const authSession = request.cookies.get('authSession')?.value;
