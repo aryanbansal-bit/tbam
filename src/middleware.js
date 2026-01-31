@@ -7,7 +7,7 @@ export function middleware(request) {
   const publicPaths = [
     '/login',
     '/api/auth',
-    '/api/services/email',
+    '/api/services',
   ];
 
   const authSession = request.cookies.get('authSession')?.value;
