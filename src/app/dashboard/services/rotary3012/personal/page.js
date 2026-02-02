@@ -37,7 +37,6 @@ export default function WhatsAppList() {
       const res = await fetch(`/api/user?${params.toString()}`);
       const json = await res.json();
       
-      // json contains the objects with partner_name, partner_id, etc.
       setData(Array.isArray(json) ? json : []);
       setSelectedRows([]);
     } catch {
@@ -128,7 +127,7 @@ export default function WhatsAppList() {
   }, [confirming]);
 
   /* =======================
-      ACTIONS (Updated for Anniversary Object)
+      ACTIONS (Payload Updated)
      ======================= */
   
   const formatPayload = (userArray) => {
@@ -139,7 +138,6 @@ export default function WhatsAppList() {
       phone: user.phone,
       annposter: user.annposter,
       eventType: user.eventType,
-      // Map the anniversary-specific partner fields directly from the object
       partner_id: user.partner_id || null,
       partner_name: user.partner_name || null,
       partner_annposter: user.partner_annposter ?? null,
@@ -156,7 +154,8 @@ export default function WhatsAppList() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          selectedRows: formatPayload(selectedRows) 
+          type: "test",
+          list: formatPayload(selectedRows) 
         }),
       });
 
@@ -178,8 +177,8 @@ export default function WhatsAppList() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          service: 'whatsapp',
-          data: formatPayload(data), 
+          type: "real",
+          list: formatPayload(data), 
         }),
       });
 
@@ -225,7 +224,7 @@ export default function WhatsAppList() {
         />
       </div>
 
-      {/* TABLE - Remains clean without partner info */}
+      {/* TABLE */}
       <div className="overflow-x-auto border rounded">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-100">
@@ -277,24 +276,34 @@ export default function WhatsAppList() {
       {/* SEND SECTION */}
       <div className="grid grid-cols-[2fr_1fr] gap-6">
         <div className="border p-4 rounded space-y-4">
-          <h3 className="font-semibold">Test WhatsApp</h3>
+          <div className="flex justify-between items-center">
+            <h3 className="font-semibold text-blue-700">Test Selection ({selectedRows.length})</h3>
+            {selectedRows.length > 0 && (
+                <button 
+                    onClick={() => setSelectedRows([])}
+                    className="text-xs text-gray-500 hover:text-red-600 underline"
+                >
+                    Clear all
+                </button>
+            )}
+          </div>
           <div className="max-h-40 overflow-y-auto border rounded p-2 text-sm space-y-2">
             {selectedRows.length === 0 ? (
-              <div className="text-gray-500 text-center">No users selected</div>
+              <div className="text-gray-500 text-center py-4">No users selected for test</div>
             ) : (
               selectedRows.map((row) => (
                 <div key={row.id} className="flex justify-between items-center bg-gray-50 p-2 rounded">
                   <div>
                     <div className="font-medium">{row.name || '-'}</div>
                     <div className="text-xs text-gray-500">
-                      ID: {row.id} | Event: {row.eventType}
+                      ID: {row.id} | {row.eventType}
                     </div>
                   </div>
                   <button
                     onClick={() => setSelectedRows((p) => p.filter((r) => r.id !== row.id))}
-                    className="text-red-600 font-bold"
+                    className="text-red-500 hover:text-red-700 font-bold px-2"
                   >
-                    ❌
+                    ✕
                   </button>
                 </div>
               ))
@@ -304,47 +313,47 @@ export default function WhatsAppList() {
           <button
             onClick={sendTest}
             disabled={sendingTest || selectedRows.length === 0}
-            className="bg-blue-600 text-white px-4 py-2 rounded w-full disabled:opacity-50"
+            className="bg-blue-600 text-white px-4 py-2 rounded w-full disabled:opacity-50 transition-colors hover:bg-blue-700"
           >
-            {sendingTest ? 'Sending...' : 'Send Test'}
+            {sendingTest ? 'Sending Test...' : 'Send Test WhatsApp'}
           </button>
         </div>
 
-        <div className="border p-4 rounded flex items-center justify-center min-h-[150px]">
+        <div className="border p-4 rounded flex items-center justify-center min-h-[150px] bg-red-50/30">
           {!confirming && !sendingRealtime ? (
             <button
               onClick={() => setConfirming(true)}
-              className="bg-red-600 text-white px-6 py-3 rounded font-bold hover:bg-red-700"
+              className="bg-red-600 text-white px-6 py-3 rounded font-bold hover:bg-red-700 transition-all shadow-md"
             >
-              Realtime to all users
+              Realtime to all {data.length} users
             </button>
           ) : !sendingRealtime ? (
             <div className="text-center space-y-4">
               <div className="font-semibold">
-                Send WhatsApp to <span className="text-red-600">ALL users</span>?
+                Send WhatsApp to <span className="text-red-600 underline">ALL {data.length} users</span>?
               </div>
               <div className="flex gap-4 justify-center">
-                <button onClick={() => setConfirming(false)} className="px-4 py-2 border rounded">No</button>
+                <button onClick={() => setConfirming(false)} className="px-4 py-2 border bg-white rounded hover:bg-gray-50">Cancel</button>
                 <button
                   disabled={countdown > 0}
                   onClick={sendRealtime}
-                  className="bg-red-600 text-white px-4 py-2 rounded disabled:opacity-50"
+                  className="bg-red-600 text-white px-4 py-2 rounded disabled:opacity-50 min-w-[100px]"
                 >
-                  Yes {countdown > 0 ? `(${countdown})` : ''}
+                  Confirm {countdown > 0 ? `(${countdown})` : ''}
                 </button>
               </div>
             </div>
           ) : (
             <div className="text-center space-y-2">
               <div className="animate-spin inline-block w-6 h-6 border-4 border-red-600 border-t-transparent rounded-full"></div>
-              <div className="font-bold text-red-600">Sending WhatsApp...</div>
+              <div className="font-bold text-red-600">Processing Realtime Queue...</div>
             </div>
           )}
         </div>
       </div>
 
       {response && (
-        <div className={`border p-3 rounded font-medium ${response.includes('✅') ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+        <div className={`border p-3 rounded font-medium transition-all animate-in fade-in slide-in-from-bottom-2 ${response.includes('✅') ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
           {response}
         </div>
       )}
