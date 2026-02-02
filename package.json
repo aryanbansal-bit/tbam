@@ -22,7 +22,8 @@
     "react-dom": "^19.0.0",
     "react-simple-code-editor": "^0.14.1",
     "sharp": "^0.34.2",
-    "whatsapp-web.js": "^1.34.6"
+    "whatsapp-web.js": "^1.34.6",
+    "zeptomail": "^7.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
