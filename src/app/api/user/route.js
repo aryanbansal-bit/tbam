@@ -73,7 +73,7 @@ export async function GET(request) {
       .from("user")
       .select(`
         id, name, email, phone, annposter,
-        partner:partner_id ( id, active, annposter )
+        partner:partner_id ( id,name, active, annposter )
       `)
       .eq("anniversary", normalizedDate)
       .eq("active", true);
@@ -84,7 +84,7 @@ export async function GET(request) {
         u.partner?.active &&
         (u.annposter === true || u.partner?.annposter === true)
       ) || [];
-  
+      console.log(anniversaryFiltered)
     const list = [
       ...(birthdays || []).map(u => ({
         id: u.id,
@@ -99,6 +99,9 @@ export async function GET(request) {
         email: u.email,
         phone: u.phone,
         eventType: "Anniversary",
+        partner_id:u.partner.id,
+        partner_name:u.partner.name,
+        partner_annposter:u.partner.annposter,
       })),
     ];
   

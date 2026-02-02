@@ -14,7 +14,7 @@ const getTodayIST = () => {
 
 export default function WhatsAppList() {
   /* =======================
-     DATA
+      DATA
      ======================= */
   const [data, setData] = useState([]);
   const [loadingTable, setLoadingTable] = useState(true);
@@ -36,6 +36,8 @@ export default function WhatsAppList() {
 
       const res = await fetch(`/api/user?${params.toString()}`);
       const json = await res.json();
+      
+      // json contains the objects with partner_name, partner_id, etc.
       setData(Array.isArray(json) ? json : []);
       setSelectedRows([]);
     } catch {
@@ -50,7 +52,7 @@ export default function WhatsAppList() {
   }, [fetchData]);
 
   /* =======================
-     FILTERING
+      FILTERING
      ======================= */
   const filteredData = useMemo(() => {
     return data.filter((row) => {
@@ -63,7 +65,7 @@ export default function WhatsAppList() {
   }, [data, filters]);
 
   /* =======================
-     SELECTION
+      SELECTION
      ======================= */
   const [selectedRows, setSelectedRows] = useState([]);
 
@@ -77,7 +79,6 @@ export default function WhatsAppList() {
 
   const isSelected = (id) => selectedRows.some((r) => r.id === id);
 
-  // Select-all logic (only for visible/filtered rows)
   const allVisibleSelected =
     filteredData.length > 0 &&
     filteredData.every((row) =>
@@ -86,14 +87,10 @@ export default function WhatsAppList() {
 
   const toggleSelectAll = () => {
     if (allVisibleSelected) {
-      // Unselect only visible rows
       setSelectedRows((prev) =>
-        prev.filter(
-          (r) => !filteredData.some((row) => row.id === r.id)
-        )
+        prev.filter((r) => !filteredData.some((row) => row.id === r.id))
       );
     } else {
-      // Select all visible rows (avoid duplicates)
       setSelectedRows((prev) => {
         const map = new Map(prev.map((r) => [r.id, r]));
         filteredData.forEach((row) => map.set(row.id, row));
@@ -103,21 +100,20 @@ export default function WhatsAppList() {
   };
 
   /* =======================
-     SEND STATES
+      SEND STATES
      ======================= */
   const [sendingTest, setSendingTest] = useState(false);
   const [sendingRealtime, setSendingRealtime] = useState(false);
   const [response, setResponse] = useState('');
 
   /* =======================
-     REALTIME CONFIRMATION
+      REALTIME CONFIRMATION
      ======================= */
   const [confirming, setConfirming] = useState(false);
   const [countdown, setCountdown] = useState(5);
 
   useEffect(() => {
     if (!confirming) return;
-
     setCountdown(5);
     const timer = setInterval(() => {
       setCountdown((c) => {
@@ -128,16 +124,30 @@ export default function WhatsAppList() {
         return c - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, [confirming]);
 
   /* =======================
-     ACTIONS
+      ACTIONS (Updated for Anniversary Object)
      ======================= */
+  
+  const formatPayload = (userArray) => {
+    return userArray.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      annposter: user.annposter,
+      eventType: user.eventType,
+      // Map the anniversary-specific partner fields directly from the object
+      partner_id: user.partner_id || null,
+      partner_name: user.partner_name || null,
+      partner_annposter: user.partner_annposter ?? null,
+    }));
+  };
+
   const sendTest = async () => {
     if (selectedRows.length === 0) return;
-
     setSendingTest(true);
     setResponse('');
 
@@ -145,11 +155,12 @@ export default function WhatsAppList() {
       const res = await fetch('/api/services/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ selectedRows }),
+        body: JSON.stringify({ 
+          selectedRows: formatPayload(selectedRows) 
+        }),
       });
 
       if (!res.ok) throw new Error('Failed to send test WhatsApp');
-
       setResponse('✅ Test WhatsApp sent successfully');
     } catch (err) {
       setResponse(`❌ ${err.message}`);
@@ -168,12 +179,11 @@ export default function WhatsAppList() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           service: 'whatsapp',
-          data,
+          data: formatPayload(data), 
         }),
       });
 
       if (!res.ok) throw new Error('Failed to send realtime WhatsApp');
-
       setResponse('✅ Realtime WhatsApp sent to all users');
     } catch (err) {
       setResponse(`❌ ${err.message}`);
@@ -215,7 +225,7 @@ export default function WhatsAppList() {
         />
       </div>
 
-      {/* TABLE */}
+      {/* TABLE - Remains clean without partner info */}
       <div className="overflow-x-auto border rounded">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-100">
@@ -237,15 +247,11 @@ export default function WhatsAppList() {
           <tbody>
             {loadingTable ? (
               <tr>
-                <td colSpan="5" className="text-center px-4 py-6 text-gray-500">
-                  Loading data...
-                </td>
+                <td colSpan="5" className="text-center px-4 py-6 text-gray-500">Loading data...</td>
               </tr>
             ) : filteredData.length === 0 ? (
               <tr>
-                <td colSpan="5" className="text-center px-4 py-6 text-gray-500">
-                  No data available
-                </td>
+                <td colSpan="5" className="text-center px-4 py-6 text-gray-500">No data available</td>
               </tr>
             ) : (
               filteredData.map((row) => (
@@ -270,21 +276,14 @@ export default function WhatsAppList() {
 
       {/* SEND SECTION */}
       <div className="grid grid-cols-[2fr_1fr] gap-6">
-        {/* TEST */}
         <div className="border p-4 rounded space-y-4">
           <h3 className="font-semibold">Test WhatsApp</h3>
-
           <div className="max-h-40 overflow-y-auto border rounded p-2 text-sm space-y-2">
             {selectedRows.length === 0 ? (
-              <div className="text-gray-500 text-center">
-                No users selected
-              </div>
+              <div className="text-gray-500 text-center">No users selected</div>
             ) : (
               selectedRows.map((row) => (
-                <div
-                  key={row.id}
-                  className="flex justify-between items-center bg-gray-50 p-2 rounded"
-                >
+                <div key={row.id} className="flex justify-between items-center bg-gray-50 p-2 rounded">
                   <div>
                     <div className="font-medium">{row.name || '-'}</div>
                     <div className="text-xs text-gray-500">
@@ -292,11 +291,7 @@ export default function WhatsAppList() {
                     </div>
                   </div>
                   <button
-                    onClick={() =>
-                      setSelectedRows((p) =>
-                        p.filter((r) => r.id !== row.id)
-                      )
-                    }
+                    onClick={() => setSelectedRows((p) => p.filter((r) => r.id !== row.id))}
                     className="text-red-600 font-bold"
                   >
                     ❌
@@ -315,7 +310,6 @@ export default function WhatsAppList() {
           </button>
         </div>
 
-        {/* REALTIME */}
         <div className="border p-4 rounded flex items-center justify-center min-h-[150px]">
           {!confirming && !sendingRealtime ? (
             <button
@@ -329,15 +323,8 @@ export default function WhatsAppList() {
               <div className="font-semibold">
                 Send WhatsApp to <span className="text-red-600">ALL users</span>?
               </div>
-
               <div className="flex gap-4 justify-center">
-                <button
-                  onClick={() => setConfirming(false)}
-                  className="px-4 py-2 border rounded"
-                >
-                  No
-                </button>
-
+                <button onClick={() => setConfirming(false)} className="px-4 py-2 border rounded">No</button>
                 <button
                   disabled={countdown > 0}
                   onClick={sendRealtime}
@@ -351,23 +338,13 @@ export default function WhatsAppList() {
             <div className="text-center space-y-2">
               <div className="animate-spin inline-block w-6 h-6 border-4 border-red-600 border-t-transparent rounded-full"></div>
               <div className="font-bold text-red-600">Sending WhatsApp...</div>
-              <p className="text-xs text-gray-400">
-                Please do not close this page.
-              </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* RESPONSE */}
       {response && (
-        <div
-          className={`border p-3 rounded font-medium ${
-            response.includes('✅')
-              ? 'bg-green-50 border-green-200'
-              : 'bg-red-50 border-red-200'
-          }`}
-        >
+        <div className={`border p-3 rounded font-medium ${response.includes('✅') ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
           {response}
         </div>
       )}
