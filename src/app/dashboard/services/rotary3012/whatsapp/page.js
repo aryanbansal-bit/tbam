@@ -77,6 +77,31 @@ export default function WhatsAppList() {
 
   const isSelected = (id) => selectedRows.some((r) => r.id === id);
 
+  // Select-all logic (only for visible/filtered rows)
+  const allVisibleSelected =
+    filteredData.length > 0 &&
+    filteredData.every((row) =>
+      selectedRows.some((r) => r.id === row.id)
+    );
+
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      // Unselect only visible rows
+      setSelectedRows((prev) =>
+        prev.filter(
+          (r) => !filteredData.some((row) => row.id === r.id)
+        )
+      );
+    } else {
+      // Select all visible rows (avoid duplicates)
+      setSelectedRows((prev) => {
+        const map = new Map(prev.map((r) => [r.id, r]));
+        filteredData.forEach((row) => map.set(row.id, row));
+        return Array.from(map.values());
+      });
+    }
+  };
+
   /* =======================
      SEND STATES
      ======================= */
@@ -120,7 +145,7 @@ export default function WhatsAppList() {
       const res = await fetch('/api/services/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({selectedRows}),
+        body: JSON.stringify({ selectedRows }),
       });
 
       if (!res.ok) throw new Error('Failed to send test WhatsApp');
@@ -195,7 +220,13 @@ export default function WhatsAppList() {
         <table className="min-w-full text-sm">
           <thead className="bg-gray-100">
             <tr>
-              <th className="border px-4 py-2">Select</th>
+              <th className="border px-4 py-2 text-center">
+                <input
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={toggleSelectAll}
+                />
+              </th>
               <th className="border px-4 py-2">Name</th>
               <th className="border px-4 py-2">Phone</th>
               <th className="border px-4 py-2">Email</th>
