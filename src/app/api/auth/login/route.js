@@ -12,12 +12,12 @@ export async function POST(request) {
       )
     }
 
-    // Check if user exists with matching credentials
+    // Check credentials
     const { data, error } = await supabase
       .from('users')
-      .select('id, username, role') // ✅ only safe fields
+      .select('id, username, role')
       .eq('username', username)
-      .eq('password', password) // ⚠️ plain text check as per your request
+      .eq('password', password) // ⚠️ plain-text (as per your setup)
       .maybeSingle()
 
     if (error) {
@@ -35,22 +35,31 @@ export async function POST(request) {
       )
     }
 
-    // Success: return only safe login info
     const response = NextResponse.json(
       { success: true, user: data },
       { status: 200 }
     )
 
-    // Set cookies for session
+    // ✅ Session cookie
     response.cookies.set('authSession', 'true', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: 60 * 60 * 24,
       path: '/',
     })
 
+    // ✅ Username cookie
     response.cookies.set('username', data.username, {
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24,
+      path: '/',
+    })
+
+    // ✅ Role cookie (CRITICAL for middleware)
+    response.cookies.set('userRole', data.role, {
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24,

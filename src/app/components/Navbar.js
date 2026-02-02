@@ -9,6 +9,7 @@ export default function Navbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [role, setRole] = useState(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -17,6 +18,7 @@ export default function Navbar() {
         const data = await response.json();
         setIsAuthenticated(data.authenticated);
         setUsername(data.username || "");
+        setRole(data.role); 
       } catch (error) {
         console.error("Auth check failed:", error);
         setIsAuthenticated(false);
@@ -104,6 +106,7 @@ export default function Navbar() {
                     Add a user
                   </Link>
                 </li>
+                {role === "admin" && (
                 <li>
                   <Link
                     href="/dashboard/services/rotary3012/daily"
@@ -111,7 +114,7 @@ export default function Navbar() {
                   >
                     Services
                   </Link>
-                </li>
+                </li>)}
                 <li>
                   <Link
                     href="/dashboard/user/member"

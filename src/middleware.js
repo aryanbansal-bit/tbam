@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 export function middleware(request) {
   const { pathname } = request.nextUrl;
 
-  // Public paths (always accessible)
   const publicPaths = [
     '/login',
     '/api/auth',
@@ -11,24 +10,32 @@ export function middleware(request) {
   ];
 
   const authSession = request.cookies.get('authSession')?.value;
+  const userRole = request.cookies.get('userRole')?.value;
+
   const isAuthenticated = authSession === 'true';
 
-  // 👇 ROOT PAGE LOGIC ("/")
+  // "/" root page
   if (pathname === '/') {
-    // If logged in → redirect to dashboard
     if (isAuthenticated) {
       return NextResponse.redirect(
         new URL('/dashboard/user/home', request.url)
       );
     }
-
-    // If not logged in → allow public view
     return NextResponse.next();
   }
 
-  // Allow always-public paths
+  // Public paths
   if (publicPaths.some(path => pathname.startsWith(path))) {
     return NextResponse.next();
+  }
+
+  // 🔒 ADMIN ONLY: /dashboard/services
+  if (pathname.startsWith('/dashboard/services')) {
+    if (!isAuthenticated || userRole !== 'admin') {
+      return NextResponse.redirect(
+        new URL('/dashboard/user/home', request.url)
+      );
+    }
   }
 
   // Protected routes
