@@ -150,7 +150,7 @@ export default function WhatsAppList() {
     setResponse('');
 
     try {
-      const res = await fetch('/api/services/whatsapp', {
+      const res = await fetch('/api/services/email/rotary3012/personal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -173,7 +173,7 @@ export default function WhatsAppList() {
     setResponse('');
 
     try {
-      const res = await fetch('/api/services/whatsapp', {
+      const res = await fetch('/api/services/email/rotary3012/personal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

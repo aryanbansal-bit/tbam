@@ -1,6 +1,5 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import sharp from "sharp";
-import nodemailer from "nodemailer";
 import { supabase } from "@/app/utils/dbconnect";
 import { formatFullDate } from "@/lib/utils";
 
@@ -16,11 +15,13 @@ const s3 = new S3Client({
 
 export async function POST(request) {
   try {
-    const { SMTP_USER, ELASTIC_KEY, EMAIL_FROM } = process.env;
+    console.log(0)
+    const { ZEPTO_API_KEY, EMAIL_FROM } = process.env;
 
-    if (!SMTP_USER || !ELASTIC_KEY || !EMAIL_FROM) {
+    if (!ZEPTO_API_KEY || !EMAIL_FROM) {
       return Response.json({ message: "Server configuration error" }, { status: 500 });
     }
+    console.log(1)
 
     const istNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
     const year = istNow.getFullYear();
@@ -35,13 +36,6 @@ export async function POST(request) {
       fetchByType(normalizedDate, "spouse"),
       fetchByType(normalizedDate, "anniversary"),
     ]);
-
-    const transporter = nodemailer.createTransport({
-      host: "smtp.elasticemail.com",
-      port: 587,
-      secure: false,
-      auth: { user: SMTP_USER, pass: ELASTIC_KEY },
-    });
 
     const allRecipients = [
       ...birthdayData.map((r) => ({ ...r, type: "member" })),
@@ -70,7 +64,8 @@ export async function POST(request) {
         cid = `poster-${user.id}`;
         attachments.push({
           filename: imageName,
-          content: buffer,
+          content: buffer.toString('base64'),
+          content_type: 'image/jpeg',
           cid,
         });
       }
@@ -120,21 +115,54 @@ export async function POST(request) {
         ? `Happy Anniversary, ${name} & ${partnerName}!`
         : `Happy Birthday, ${name}!`;
 
-      await transporter.sendMail({
-        from: `"DG Dr. Amita Mohindru" <${EMAIL_FROM}>`,
-        to: userEmail,
-        bcc: "prateekbhargava1002@yahoo.com",
-        replyTo: "amitadg2526rid3012@gmail.com",
-        subject,
-        html,
-        attachments,
-        headers: {
-          "X-ElasticEmail-Settings": JSON.stringify({
-            UnsubscribeLinkText: "",
-            UnsubscribeLinkType: "None",
-          }),
+      // Prepare ZeptoMail payload
+      const zeptoPayload = {
+        from: {
+          address: EMAIL_FROM,
+          name: "DG Dr. Amita Mohindru"
         },
+        to: [
+          {
+            email_address: {
+              //address: userEmail
+              address: "bansalaryan2000@gmail.com"
+            }
+          }
+        ],
+        //bcc: [
+        //  {
+        //    email_address: {
+        //      address: "prateekbhargava1002@yahoo.com"
+        //    }
+        //  }
+        //],
+        reply_to: [
+          {
+            address: "amitadg2526rid3012@gmail.com",
+            name: "DG Dr. Amita Mohindru"
+          }
+        ],
+        subject: subject,
+        htmlbody: html,
+        attachments: attachments
+      };
+
+      // Send email via ZeptoMail API
+      const response = await fetch('https://api.zeptomail.com/v1.1/email', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': ZEPTO_API_KEY
+        },
+        body: JSON.stringify(zeptoPayload)
       });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`ZeptoMail API error for ${userEmail}:`, errorText);
+        continue;
+      }
 
       console.log(`Email sent to ${userEmail}`);
       sentCount++;
