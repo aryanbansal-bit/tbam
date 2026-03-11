@@ -743,7 +743,7 @@ export default function UserDetailModal({ id, onClose }) {
                 path="role" 
                 value={formData.role} 
                 onChange={handleInputChange}
-                options={["District Team", "Influencer President", "Influencer Secretary"]} 
+                options={["District Team", "Influencer President", "Influencer Secretary","Tejasvi Assistant Governor","Tejasvi President","Tejasvi Secretary","Tejasvi DDZ","Tejasvi District Team","Tejasvi Spouse"]} 
                 disabled={isLoading}
               />
               <Select 
@@ -814,7 +814,7 @@ export default function UserDetailModal({ id, onClose }) {
                   path="partner.role" 
                   value={formData.partner.role} 
                   onChange={handleInputChange}
-                  options={["District Team", "Influencer President", "Influencer Secretary"]} 
+                  options={["District Team", "Influencer President", "Influencer Secretary","Tejasvi Assistant Governor","Tejasvi President","Tejasvi Secretary","Tejasvi DDZ","Tejasvi District Team","Tejasvi Spouse"]} 
                   disabled={isLoading}
                 />
                 <Select 
